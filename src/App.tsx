@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import MealList from './components/MealList'
+import Planner from './components/Planner'
+import { useCooks } from './data/useCooks'
+import { useMeals } from './data/useMeals'
 import { signIn } from './lib/firebase'
+import type { Cook, Meal } from './types'
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -18,15 +22,20 @@ function useDarkMode() {
   return [dark, setDark] as const
 }
 
+type ShellProps = {
+  meals: Meal[]
+  cooks: Cook[]
+}
+
 /** The full-height two-pane shell: meal library on the left, planner on the right. */
-function Shell() {
+function Shell({ meals, cooks }: ShellProps) {
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
       <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
-        <MealList />
+        <MealList meals={meals} cooks={cooks} />
       </aside>
-      <section className="flex-1 overflow-y-auto">
-        <div className="p-4 text-sm text-gray-400 dark:text-gray-600">Planner</div>
+      <section className="flex-1 overflow-hidden">
+        <Planner meals={meals} cooks={cooks} />
       </section>
     </div>
   )
@@ -34,6 +43,8 @@ function Shell() {
 
 function App() {
   const [dark, setDark] = useDarkMode()
+  const { meals } = useMeals()
+  const { cooks } = useCooks()
 
   useEffect(() => {
     signIn().catch((error: unknown) => console.error('Anonymous sign-in failed', error))
@@ -62,10 +73,10 @@ function App() {
         </header>
 
         <Routes>
-          <Route path="/" element={<Shell />} />
-          <Route path="/week/:date" element={<Shell />} />
-          <Route path="/month/:ym" element={<Shell />} />
-          <Route path="*" element={<Shell />} />
+          <Route path="/" element={<Shell meals={meals} cooks={cooks} />} />
+          <Route path="/week/:date" element={<Shell meals={meals} cooks={cooks} />} />
+          <Route path="/month/:ym" element={<Shell meals={meals} cooks={cooks} />} />
+          <Route path="*" element={<Shell meals={meals} cooks={cooks} />} />
         </Routes>
       </div>
     </BrowserRouter>

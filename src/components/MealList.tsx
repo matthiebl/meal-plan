@@ -1,8 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useMeals } from '../data/useMeals'
-import type { Meal, MealStats } from '../types'
+import { useMealStats } from '../data/useMealStats'
+import type { Cook, Meal, MealStats } from '../types'
 import MealCard from './MealCard'
 import MealDialog from './MealDialog'
+
+type MealListProps = {
+  meals: Meal[]
+  cooks: Cook[]
+}
 
 type SortKey = 'daysSince' | 'name' | 'servings' | 'timesCooked'
 
@@ -13,7 +18,7 @@ const SORT_LABELS: Record<SortKey, string> = {
   timesCooked: 'Times cooked',
 }
 
-// TODO(phase 3): replace with useMealStats, derived from the cook list.
+// A meal with no cooks at all has no entry in useMealStats' map.
 const EMPTY_STATS: MealStats = {
   lastEaten: null,
   daysSince: null,
@@ -41,8 +46,7 @@ function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: 
 }
 
 /** The left pane: every non-archived meal, searchable and sortable. See PLAN.md §6. */
-export default function MealList() {
-  const { meals } = useMeals()
+export default function MealList({ meals, cooks }: MealListProps) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('daysSince')
   const [dialogState, setDialogState] = useState<{ open: boolean; meal: Meal | null }>({
@@ -50,14 +54,10 @@ export default function MealList() {
     meal: null,
   })
 
-  // TODO(phase 3): replace with useMealStats, keyed by mealId and derived from the cook list.
-  const statsById = useMemo(
-    () => new Map<string, MealStats>(meals.map((meal) => [meal.id, EMPTY_STATS])),
-    [meals],
-  )
+  const statsByMealId = useMealStats(cooks)
   const statsFor = useCallback(
-    (meal: Meal) => statsById.get(meal.id) ?? EMPTY_STATS,
-    [statsById],
+    (meal: Meal) => statsByMealId.get(meal.id) ?? EMPTY_STATS,
+    [statsByMealId],
   )
 
   const visible = useMemo(() => {

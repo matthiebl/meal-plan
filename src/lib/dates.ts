@@ -1,6 +1,7 @@
 import {
   addDays,
   addWeeks,
+  differenceInCalendarDays,
   eachDayOfInterval,
   format,
   isSameDay,
@@ -72,4 +73,9 @@ export function isToday(date: Date): boolean {
 
 export function isSameDate(a: Date, b: Date): boolean {
   return isSameDay(a, b)
+}
+
+/** Calendar days from a 'YYYY-MM-DD' string to today. */
+export function daysSince(iso: string): number {
+  return differenceInCalendarDays(new Date(), fromISODate(iso))
 }

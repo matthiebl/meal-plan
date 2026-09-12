@@ -257,7 +257,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
 - [x] **2. Meals** — `useMeals`; left pane list with search and sort; meal create/edit
       dialog with visual picker; archive. *Checkpoint: the real meal library can be
       entered.*
-- [ ] **3. Week planner** — eight Sat→Sat day rows; cook chips; add via `+`; delete;
+- [x] **3. Week planner** — eight Sat→Sat day rows; cook chips; add via `+`; delete;
       `useMealStats` wired into the left pane. *Checkpoint: usable for planning without
       dragging.*
 - [ ] **4. Drag and drop** — all four gestures from §6; batch reindexing; drag overlay.
