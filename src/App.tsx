@@ -19,7 +19,6 @@ import Planner from './components/Planner'
 import { insertCook, moveCook, reorderDay } from './data/mutations'
 import { useCooks } from './data/useCooks'
 import { useMeals } from './data/useMeals'
-import { signIn } from './lib/firebase'
 import type { DragData, DropData } from './lib/dnd'
 import { cooksOnDate } from './lib/planner'
 import type { Cook, Meal } from './types'
@@ -137,10 +136,6 @@ function App() {
   const [dark, setDark] = useDarkMode()
   const { meals } = useMeals()
   const { cooks } = useCooks()
-
-  useEffect(() => {
-    signIn().catch((error: unknown) => console.error('Anonymous sign-in failed', error))
-  }, [])
 
   return (
     <BrowserRouter>
