@@ -1,3 +1,36 @@
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * The ten closed meal-colour tokens (PLAN.md §5). Each is a light/dark pair:
+ * the value swaps under `.dark` so a single class (e.g. `bg-meal-rose`)
+ * holds contrast in both themes without a `dark:` variant at the call site.
+ * Fill treatments (solid/soft/outline) are built from these base values in
+ * `lib/visuals.ts`, not baked in here.
+ */
+@theme {
+  --color-meal-slate: #64748b;
+  --color-meal-rose: #f43f5e;
+  --color-meal-red: #ef4444;
+  --color-meal-amber: #f59e0b;
+  --color-meal-lime: #84cc16;
+  --color-meal-emerald: #10b981;
+  --color-meal-teal: #14b8a6;
+  --color-meal-sky: #0ea5e9;
+  --color-meal-indigo: #6366f1;
+  --color-meal-violet: #8b5cf6;
+}
+
+.dark {
+  --color-meal-slate: #94a3b8;
+  --color-meal-rose: #fb7185;
+  --color-meal-red: #f87171;
+  --color-meal-amber: #fbbf24;
+  --color-meal-lime: #a3e635;
+  --color-meal-emerald: #34d399;
+  --color-meal-teal: #2dd4bf;
+  --color-meal-sky: #38bdf8;
+  --color-meal-indigo: #818cf8;
+  --color-meal-violet: #a78bfa;
+}

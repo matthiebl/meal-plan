@@ -1,0 +1,69 @@
+rules_version = '2';
+
+// See PLAN.md §7. Anonymous auth exists solely to stop scripted access by
+// anyone who reads the Firebase config out of the JS bundle — all signed-in
+// users share full read/write access, and there is no per-user data.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isISODate(value) {
+      return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    function isColorToken(value) {
+      return value in
+        ['slate', 'rose', 'red', 'amber', 'lime', 'emerald', 'teal', 'sky', 'indigo', 'violet'];
+    }
+
+    function isValidVisual(visual) {
+      return visual is map
+        && isColorToken(visual.color)
+        && visual.fill in ['solid', 'soft', 'outline']
+        && (!('icon' in visual) || visual.icon is string);
+    }
+
+    // meals/{mealId}
+    match /meals/{mealId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'servings', 'visual', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.servings is number
+        && request.resource.data.servings > 0
+        && isValidVisual(request.resource.data.visual)
+        && (!('archived' in request.resource.data) || request.resource.data.archived is bool)
+        && request.resource.data.createdAt is timestamp;
+      // Meals are never hard-deleted; they are archived instead.
+      allow delete: if false;
+    }
+
+    // cooks/{cookId}
+    match /cooks/{cookId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['mealId', 'date', 'kind', 'order', 'createdAt'])
+        && request.resource.data.mealId is string
+        && isISODate(request.resource.data.date)
+        && request.resource.data.kind in ['cook', 'leftovers']
+        && request.resource.data.order is int
+        && request.resource.data.order >= 0
+        && (!('fromCookId' in request.resource.data) || request.resource.data.fromCookId is string)
+        && request.resource.data.createdAt is timestamp;
+      allow delete: if isSignedIn();
+    }
+
+    // weeks/{saturdayISO}
+    match /weeks/{saturdayISO} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['shopDate'])
+        && isISODate(request.resource.data.shopDate);
+      allow delete: if false;
+    }
+  }
+}
