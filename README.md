@@ -36,16 +36,22 @@ firebase deploy --only firestore:rules
 
 ## Deploy
 
-The app deploys to Firebase Hosting. One-time setup, per machine:
+The app is hosted on GitHub Pages at
+[matthiebl.github.io/meal-plan](https://matthiebl.github.io/meal-plan/). Pushing to
+`master` builds and publishes it; there is nothing to run by hand.
 
-```bash
-firebase login
-firebase use --add   # pick your Firebase project; writes a local, gitignored .firebaserc
-```
+One-time repository setup:
 
-Then, for every deploy:
+- **Settings → Pages → Source**: GitHub Actions.
+- **Settings → Secrets and variables → Actions → Variables**: add the six
+  `VITE_FIREBASE_*` values. They are variables rather than secrets because Vite inlines
+  them into the bundle, so they are public once the site ships.
+- **Firebase console → Authentication → Settings → Authorized domains**: add the domain
+  the site is served from.
+
+To check the production build locally:
 
 ```bash
 npm run build
-firebase deploy --only hosting
+npm run preview
 ```

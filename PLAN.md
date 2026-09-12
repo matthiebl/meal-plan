@@ -26,6 +26,7 @@ There is no user concept. All data is public and shared. There is no authenticat
 | Data | Firebase Firestore (web SDK), accessed directly from the frontend |
 | Drag & drop | `@dnd-kit/core` + `@dnd-kit/sortable` + `@dnd-kit/utilities` |
 | Dates | `date-fns` |
+| Hosting | GitHub Pages |
 
 All application logic runs on the frontend. There is no backend service and no Cloud
 Functions. Firestore is the only persistence layer.
@@ -248,17 +249,25 @@ Requirements:
   irreversible-by-default delete in the app, since meals are archived rather than deleted
   (see §3) and weeks are never deleted at all.
 
-## 7. Firebase and access control
+## 7. Firebase, access control, and deployment
 
-- Config is read from `.env.local` as `VITE_FIREBASE_*` variables (`*.local` is already
-  gitignored). The config is never committed.
+- Config is read from `VITE_FIREBASE_*` variables: `.env.local` locally (`*.local` is
+  already gitignored), and repository Actions *variables* — not secrets — in CI. Vite
+  inlines them into the bundle, so they are public either way; keeping them out of the
+  repository only avoids tripping secret scanners.
 - The app calls `signInAnonymously` on boot. There is no login UI and no user concept in
   the interface.
 - `firestore.rules` is committed to the repository. Rules require `request.auth != null`
   for both reads and writes, and validate document shape for `meals`, `cooks`, and
   `weeks`. Anonymous auth exists solely to stop scripted access by anyone who reads the
   Firebase config out of the JS bundle.
-- Deployment target is Firebase Hosting.
+- The app is hosted on GitHub Pages and served from `/meal-plan/`, so Vite's `base` and
+  the router's `basename` are both that path.
+- Pushing to `master` builds and deploys through `.github/workflows/deploy.yml`. Nothing
+  is deployed from a developer machine except `firestore.rules`, which goes out with the
+  Firebase CLI.
+- GitHub Pages has no rewrites, so the build writes `dist/404.html` as a copy of
+  `index.html`. That is what makes a deep link survive a hard refresh.
 
 ## 8. File structure
 
@@ -295,6 +304,7 @@ src/
   main.tsx
   index.css              # Tailwind import, dark variant, @theme colour tokens
 firestore.rules
+.github/workflows/deploy.yml   # build and publish to GitHub Pages
 ```
 
 ## 9. Build order
