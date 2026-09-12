@@ -169,6 +169,8 @@ Two views, switched at the top of the pane.
 - A Sunday-to-Saturday grid, six rows.
 - Compact chips: colour dot plus truncated meal name.
 - Not a drag target. Clicking a day switches to the week view containing that day.
+- Previous/next month controls.
+- Today's cell is highlighted; days outside the displayed month are dimmed.
 
 ### Routes
 
@@ -231,7 +233,7 @@ src/
     useMealStats.ts      # derives the §4 statistics
     useWeekMeta.ts       # shop-day read/write
     mutations.ts         # addMeal, updateMeal, archiveMeal, addCook, insertCook,
-                         # moveCook, reorderDay, addLeftovers, deleteCook
+                         # moveCook, reorderDay, addLeftovers, deleteCook, setShopDate
   components/
     MealList.tsx
     MealCard.tsx
@@ -264,7 +266,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
       dragging.*
 - [x] **4. Drag and drop** — all four gestures from §6; batch reindexing; drag overlay.
       *Checkpoint: the app as specified.*
-- [ ] **5. Month view and shop day** — historical grid; click-through to week; movable
+- [x] **5. Month view and shop day** — historical grid; click-through to week; movable
       shop marker.
 - [ ] **6. Polish** — empty states, mobile stacking, undo for deletes, README, deploy.
 

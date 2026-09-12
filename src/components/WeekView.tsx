@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addCook, addLeftovers, deleteCook, moveCook, reorderDay } from '../data/mutations'
+import { addCook, addLeftovers, deleteCook, moveCook, reorderDay, setShopDate } from '../data/mutations'
+import { useWeekMeta } from '../data/useWeekMeta'
 import { nextWeek, previousWeek, toISODate, weekDays } from '../lib/dates'
 import { cooksOnDate } from '../lib/planner'
 import type { Cook, Meal } from '../types'
@@ -25,6 +26,31 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
     for (const day of days) map.set(toISODate(day), cooksOnDate(cooks, toISODate(day)))
     return map
   }, [days, cooks])
+
+  // Both Saturdays shown carry their own shop-day marker, each defaulting to
+  // its own Saturday but movable to the Sunday right after. See PLAN.md §6.
+  const startSaturdayISO = toISODate(days[0])
+  const startSundayISO = toISODate(days[1])
+  const endSaturdayISO = toISODate(days[7])
+  const startWeekShopDate = useWeekMeta(startSaturdayISO)
+  const endWeekShopDate = useWeekMeta(endSaturdayISO)
+
+  const shopDayByDate = useMemo(() => {
+    const map = new Map<string, { active: boolean; onSet: () => void }>()
+    map.set(startSaturdayISO, {
+      active: startWeekShopDate === startSaturdayISO,
+      onSet: () => setShopDate(startSaturdayISO, startSaturdayISO),
+    })
+    map.set(startSundayISO, {
+      active: startWeekShopDate === startSundayISO,
+      onSet: () => setShopDate(startSaturdayISO, startSundayISO),
+    })
+    map.set(endSaturdayISO, {
+      active: endWeekShopDate === endSaturdayISO,
+      onSet: () => setShopDate(endSaturdayISO, endSaturdayISO),
+    })
+    return map
+  }, [startSaturdayISO, startSundayISO, endSaturdayISO, startWeekShopDate, endWeekShopDate])
 
   function handleAddCook(date: string, mealId: string) {
     const order = cooksByDay.get(date)?.length ?? 0
@@ -92,6 +118,7 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
               mealsById={mealsById}
               activeMeals={activeMeals}
               weekDays={days}
+              shopDay={shopDayByDate.get(iso)}
               onAddCook={(mealId) => handleAddCook(iso, mealId)}
               onDeleteCook={deleteCook}
               onReorderCook={handleReorderCook}

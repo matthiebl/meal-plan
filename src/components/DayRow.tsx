@@ -7,12 +7,15 @@ import { cookDragId, dayDropId } from '../lib/dnd'
 import type { Cook, Meal } from '../types'
 import CookChip from './CookChip'
 
+type ShopDay = { active: boolean; onSet: () => void }
+
 type DayRowProps = {
   date: Date
   cooks: Cook[]
   mealsById: Map<string, Meal>
   activeMeals: Meal[]
   weekDays: Date[]
+  shopDay?: ShopDay
   onAddCook: (mealId: string) => void
   onDeleteCook: (cookId: string) => void
   onReorderCook: (cookId: string, direction: 'left' | 'right') => void
@@ -31,6 +34,7 @@ export default function DayRow({
   mealsById,
   activeMeals,
   weekDays,
+  shopDay,
   onAddCook,
   onDeleteCook,
   onReorderCook,
@@ -88,6 +92,22 @@ export default function DayRow({
           {format(date, 'EEE')}
         </div>
         <div className="text-gray-400 dark:text-gray-600">{format(date, 'MMM d')}</div>
+        {shopDay && (
+          <button
+            type="button"
+            onClick={shopDay.onSet}
+            disabled={shopDay.active}
+            aria-pressed={shopDay.active}
+            title={shopDay.active ? 'Shop day' : 'Move shop day here'}
+            className={`mt-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
+              shopDay.active
+                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                : 'border border-dashed border-gray-300 text-gray-300 hover:border-gray-400 hover:text-gray-500 dark:border-gray-700 dark:text-gray-700 dark:hover:border-gray-600 dark:hover:text-gray-500'
+            }`}
+          >
+            🛒
+          </button>
+        )}
       </div>
 
       <SortableContext items={cooks.map((cook) => cookDragId(cook.id))} strategy={rectSortingStrategy}>

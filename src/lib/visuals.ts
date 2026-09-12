@@ -85,3 +85,22 @@ export function chipClasses(visual: MealVisual): string {
 export function swatchClasses(color: ColorToken): string {
   return CHIP_CLASSES[color].solid
 }
+
+// Written out per color, same reasoning as CHIP_CLASSES above.
+const DOT_CLASSES: Record<ColorToken, string> = {
+  slate: 'bg-meal-slate',
+  rose: 'bg-meal-rose',
+  red: 'bg-meal-red',
+  amber: 'bg-meal-amber',
+  lime: 'bg-meal-lime',
+  emerald: 'bg-meal-emerald',
+  teal: 'bg-meal-teal',
+  sky: 'bg-meal-sky',
+  indigo: 'bg-meal-indigo',
+  violet: 'bg-meal-violet',
+}
+
+/** A meal's colour alone, with no fill treatment — the month view's compact chip dot. */
+export function dotClasses(color: ColorToken): string {
+  return DOT_CLASSES[color]
+}

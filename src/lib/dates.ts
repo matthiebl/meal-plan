@@ -1,13 +1,16 @@
 import {
   addDays,
+  addMonths,
   addWeeks,
   differenceInCalendarDays,
   eachDayOfInterval,
   format,
   isSameDay,
+  isSameMonth as isSameMonthFns,
   isToday as isTodayFns,
   startOfMonth,
   startOfWeek,
+  subMonths,
   subWeeks,
 } from 'date-fns'
 
@@ -67,12 +70,26 @@ export function fromMonthParam(ym: string): Date {
   return new Date(year, month - 1, 1)
 }
 
+/** The first day of the month before the one containing `date`. */
+export function previousMonth(date: Date): Date {
+  return startOfMonth(subMonths(date, 1))
+}
+
+/** The first day of the month after the one containing `date`. */
+export function nextMonth(date: Date): Date {
+  return startOfMonth(addMonths(date, 1))
+}
+
 export function isToday(date: Date): boolean {
   return isTodayFns(date)
 }
 
 export function isSameDate(a: Date, b: Date): boolean {
   return isSameDay(a, b)
+}
+
+export function isSameMonthAs(date: Date, month: Date): boolean {
+  return isSameMonthFns(date, month)
 }
 
 /** Calendar days from a 'YYYY-MM-DD' string to today. */

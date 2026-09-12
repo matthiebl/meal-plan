@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import type { CookKind, MealVisual } from '../types'
 
@@ -98,4 +98,9 @@ export function moveCook(cookId: string, date: string, originDayIds: string[], d
 /** Deletes a cook. Leftovers referencing it via `fromCookId` survive, per PLAN.md §3. */
 export function deleteCook(cookId: string) {
   return deleteDoc(doc(db, 'cooks', cookId))
+}
+
+/** Sets a week's shop day — its own Saturday, or the Sunday right after. */
+export function setShopDate(saturdayISO: string, shopDate: string) {
+  return setDoc(doc(db, 'weeks', saturdayISO), { shopDate })
 }
