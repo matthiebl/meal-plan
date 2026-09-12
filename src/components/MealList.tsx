@@ -50,10 +50,12 @@ function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: 
 export default function MealList({ meals, cooks, loading }: MealListProps) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('daysSince')
-  const [dialogState, setDialogState] = useState<{ open: boolean; meal: Meal | null }>({
-    open: false,
-    meal: null,
-  })
+  const [dialogState, setDialogState] = useState<{
+    open: boolean
+    meal: Meal | null
+    /** Prefills the name when a search turned nothing up. */
+    initialName?: string
+  }>({ open: false, meal: null })
 
   const statsByMealId = useMealStats(cooks)
   const statsFor = useCallback(
@@ -61,71 +63,112 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
     [statsByMealId],
   )
 
+  const active = useMemo(() => meals.filter((meal) => !meal.archived), [meals])
+
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase()
-    const active = meals.filter((meal) => !meal.archived)
     const filtered = query ? active.filter((meal) => meal.name.toLowerCase().includes(query)) : active
     return sortMeals(filtered, statsFor, sortKey)
-  }, [meals, search, sortKey, statsFor])
+  }, [active, search, sortKey, statsFor])
 
   return (
-    <div className="flex h-full flex-col p-4">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Meals</h2>
-        <button
-          type="button"
-          onClick={() => setDialogState({ open: true, meal: null })}
-          className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-gray-900"
-        >
-          + New meal
-        </button>
+    <div className="flex h-full flex-col">
+      <div className="flex-shrink-0 space-y-3 border-b border-gray-200 px-4 pt-4 pb-3 dark:border-gray-800">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="flex items-baseline gap-2 text-lg font-semibold">
+            Meals
+            {!loading && active.length > 0 && (
+              <span className="text-sm font-normal text-gray-400 tabular-nums dark:text-gray-500">
+                {active.length}
+              </span>
+            )}
+          </h2>
+          <button
+            type="button"
+            onClick={() => setDialogState({ open: true, meal: null })}
+            className="flex items-center gap-1.5 rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-gray-900"
+          >
+            <span className="text-base leading-none">+</span>
+            New meal
+          </button>
+        </div>
+
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-400"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" strokeLinecap="round" />
+            </svg>
+            <input
+              type="search"
+              placeholder="Search meals…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 py-2 pr-3 pl-9 text-sm dark:border-gray-700 dark:bg-gray-800"
+            />
+          </div>
+          <select
+            value={sortKey}
+            onChange={(e) => setSortKey(e.target.value as SortKey)}
+            aria-label="Sort meals"
+            title="Sort meals"
+            className="flex-shrink-0 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          >
+            {Object.entries(SORT_LABELS).map(([key, label]) => (
+              <option key={key} value={key}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
-      <div className="mb-3 flex gap-2">
-        <input
-          type="search"
-          placeholder="Search meals…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
-        />
-        <select
-          value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-          className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
-        >
-          {Object.entries(SORT_LABELS).map(([key, label]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
         {loading ? (
           <MealListSkeleton />
+        ) : visible.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 px-4 py-12 text-center">
+            <span className="text-4xl">{active.length === 0 ? '🍳' : '🔍'}</span>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {active.length === 0
+                ? 'Your meal library is empty. Add the things you cook, then drag them onto a day.'
+                : `No meals match “${search.trim()}”.`}
+            </p>
+            <button
+              type="button"
+              onClick={() =>
+                setDialogState({ open: true, meal: null, initialName: search.trim() || undefined })
+              }
+              className="max-w-full truncate rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
+            >
+              {active.length === 0 ? 'Add your first meal' : `Create “${search.trim()}”`}
+            </button>
+          </div>
         ) : (
-          <>
-            {visible.length === 0 && (
-              <p className="p-4 text-center text-sm text-gray-400 dark:text-gray-600">
-                {meals.length === 0 ? 'No meals yet.' : 'No meals match your search.'}
-              </p>
-            )}
-            {visible.map((meal) => (
-              <MealCard
-                key={meal.id}
-                meal={meal}
-                stats={statsFor(meal)}
-                onEdit={() => setDialogState({ open: true, meal })}
-              />
-            ))}
-          </>
+          visible.map((meal) => (
+            <MealCard
+              key={meal.id}
+              meal={meal}
+              stats={statsFor(meal)}
+              onEdit={() => setDialogState({ open: true, meal })}
+            />
+          ))
         )}
       </div>
 
       {dialogState.open && (
-        <MealDialog meal={dialogState.meal} onClose={() => setDialogState({ open: false, meal: null })} />
+        <MealDialog
+          meal={dialogState.meal}
+          initialName={dialogState.initialName}
+          onClose={() => setDialogState({ open: false, meal: null })}
+        />
       )}
     </div>
   )
@@ -136,17 +179,13 @@ function MealListSkeleton() {
   return (
     <>
       {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          className="animate-pulse rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="h-6 w-28 rounded-full bg-gray-200 dark:bg-gray-800" />
-            <div className="h-3 w-14 rounded bg-gray-200 dark:bg-gray-800" />
-          </div>
-          <div className="mt-3 flex gap-4">
-            <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-800" />
-            <div className="h-3 w-16 rounded bg-gray-200 dark:bg-gray-800" />
+        <div key={i} className="animate-pulse rounded-xl border border-gray-200 p-3 dark:border-gray-800">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1">
+              <div className="h-7 w-32 rounded-full bg-gray-200 dark:bg-gray-800" />
+              <div className="mt-3 h-3 w-44 rounded bg-gray-200 dark:bg-gray-800" />
+            </div>
+            <div className="h-7 w-10 rounded bg-gray-200 dark:bg-gray-800" />
           </div>
         </div>
       ))}

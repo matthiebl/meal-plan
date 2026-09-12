@@ -1,5 +1,5 @@
 import type { DragData } from '../lib/dnd'
-import { chipClasses } from '../lib/visuals'
+import { LEFTOVERS_PREFIX, chipClasses } from '../lib/visuals'
 
 type DragOverlayChipProps = {
   data: DragData
@@ -7,34 +7,23 @@ type DragOverlayChipProps = {
 
 /** The floating chip rendered under the pointer for any of the four drag gestures. See PLAN.md §6. */
 export default function DragOverlayChip({ data }: DragOverlayChipProps) {
-  if (data.type === 'meal') {
-    return (
-      <div
-        className={`cursor-grabbing truncate rounded-full px-2.5 py-1 text-sm font-medium shadow-lg ${chipClasses(
-          data.meal.visual,
-        )}`}
-      >
-        {data.meal.visual.icon ? `${data.meal.visual.icon} ` : ''}
-        {data.meal.name}
-      </div>
-    )
-  }
-
-  const isLeftovers = data.type === 'leftovers' || data.cook.kind === 'leftovers'
+  const isLeftovers = data.type === 'leftovers' || (data.type === 'cook' && data.cook.kind === 'leftovers')
 
   return (
     <div
-      className={`flex cursor-grabbing items-center gap-1 py-1 pr-2 pl-2.5 text-xs font-medium shadow-lg ${chipClasses(
+      className={`flex h-10 max-w-[20rem] cursor-grabbing items-center gap-1.5 px-3.5 text-sm font-semibold shadow-2xl ${chipClasses(
         data.meal.visual,
       )} ${
         isLeftovers
-          ? 'rounded-r-full border-l-2 border-current opacity-75 [border-left-style:dashed]'
+          ? 'rounded-r-full rounded-l-md border-l-[3px] border-current opacity-90 [border-left-style:dashed]'
           : 'rounded-full'
       }`}
     >
-      {isLeftovers ? '↩ ' : ''}
-      {data.meal.visual.icon ? `${data.meal.visual.icon} ` : ''}
-      {data.meal.name}
+      {isLeftovers && <span className="flex-shrink-0 leading-none opacity-80">{LEFTOVERS_PREFIX}</span>}
+      {data.meal.visual.icon && (
+        <span className="flex-shrink-0 text-base leading-none">{data.meal.visual.icon}</span>
+      )}
+      <span className="truncate">{data.meal.name}</span>
     </div>
   )
 }

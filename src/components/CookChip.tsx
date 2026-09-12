@@ -2,11 +2,12 @@ import { useDraggable } from '@dnd-kit/core'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { format } from 'date-fns'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { toISODate } from '../lib/dates'
 import { cookDragId, leftoversDragId } from '../lib/dnd'
-import { chipClasses } from '../lib/visuals'
+import { LEFTOVERS_PREFIX, chipClasses } from '../lib/visuals'
 import type { Cook, Meal } from '../types'
+import Popover from './Popover'
 
 type CookChipProps = {
   cook: Cook
@@ -18,7 +19,13 @@ type CookChipProps = {
   onReorder: (direction: 'left' | 'right') => void
   onMoveToDay: (date: string) => void
   onAddLeftovers: (date: string) => void
+  onQuickLeftovers: () => void
 }
+
+const GHOST_BUTTON =
+  'flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-current opacity-75 transition hover:bg-current/20 hover:opacity-100'
+
+const MENU_LABEL = 'mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500'
 
 /**
  * One cook or leftovers chip, styled identically wherever the meal appears.
@@ -26,9 +33,10 @@ type CookChipProps = {
  * edge, a ↩ prefix, and reduced opacity. See PLAN.md §5.
  *
  * Draggable as a sortable (reorder within a day, or move to another day).
- * The small ↺ tab is its own drag source for the leftovers gesture, and
- * doubles as its click equivalent. The ⋯ menu is the click/keyboard
- * equivalent for reordering and moving. See PLAN.md §6.
+ * The ↺ tab is its own drag source for the leftovers gesture; clicking it
+ * adds leftovers to the next day, the answer nearly every time. The ⋯ menu
+ * holds the rest — any other day, reordering, and removal — as a strip of
+ * day buttons rather than a list to read through. See PLAN.md §6.
  */
 export default function CookChip({
   cook,
@@ -40,10 +48,10 @@ export default function CookChip({
   onReorder,
   onMoveToDay,
   onAddLeftovers,
+  onQuickLeftovers,
 }: CookChipProps) {
   const isLeftovers = cook.kind === 'leftovers'
-  const [menu, setMenu] = useState<'move' | 'leftovers' | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const {
     attributes: chipAttributes,
@@ -64,151 +72,142 @@ export default function CookChip({
     setNodeRef: setLeftoversNodeRef,
   } = useDraggable({ id: leftoversDragId(cook.id), data: { type: 'leftovers', cook, meal } })
 
-  useEffect(() => {
-    if (!menu) return
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setMenu(null)
-      }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setMenu(null)
-    }
-    window.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [menu])
-
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
   }
 
-  const otherDays = weekDays.filter((d) => toISODate(d) !== cook.date)
+  function dayStrip(onPick: (iso: string) => void, currentDate?: string) {
+    return (
+      <div className="grid grid-cols-8 gap-1">
+        {weekDays.map((day) => {
+          const dayISO = toISODate(day)
+          const isCurrent = dayISO === currentDate
+          return (
+            <button
+              key={dayISO}
+              type="button"
+              disabled={isCurrent}
+              aria-current={isCurrent || undefined}
+              onClick={() => {
+                onPick(dayISO)
+                setMenuOpen(false)
+              }}
+              className={`flex flex-col items-center rounded-lg py-1.5 transition-colors ${
+                isCurrent
+                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
+              }`}
+            >
+              <span className="text-[10px] uppercase opacity-70">{format(day, 'EEEEEE')}</span>
+              <span className="text-sm font-semibold tabular-nums">{format(day, 'd')}</span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
 
   return (
     <div
-      ref={(node) => {
-        setChipNodeRef(node)
-        containerRef.current = node
-      }}
+      ref={setChipNodeRef}
       style={style}
-      className={`relative flex items-center gap-1 py-1 pr-1 pl-1.5 text-xs font-medium ${chipClasses(meal.visual)} ${
+      // `useSortable` puts a transform on this element, which makes it a
+      // stacking context — so the open menu's own z-index cannot lift it
+      // above anything outside the chip. The chip itself has to be
+      // positioned and raised, or later siblings (the add buttons, the rows
+      // below) paint straight through the menu.
+      className={`relative flex h-10 max-w-full items-center gap-1 py-1 pr-1 pl-2.5 text-sm font-medium md:max-w-[20rem] ${
+        menuOpen ? 'z-40' : ''
+      } ${chipClasses(meal.visual)} ${
         isLeftovers
-          ? 'rounded-r-full border-l-2 border-current opacity-75 [border-left-style:dashed]'
+          ? 'rounded-r-full rounded-l-md border-l-[3px] border-current opacity-80 [border-left-style:dashed]'
           : 'rounded-full'
       } ${isDragging ? 'opacity-40' : ''} ${
-        isDropTarget ? 'ring-2 ring-sky-500 ring-offset-1 dark:ring-offset-gray-950' : ''
+        isDropTarget ? 'ring-2 ring-sky-500 ring-offset-1 dark:ring-offset-gray-900' : ''
       }`}
     >
+      <span
+        {...chipAttributes}
+        {...chipListeners}
+        title={`${meal.name} — drag to another day`}
+        className="flex min-w-0 flex-1 cursor-grab touch-none items-center gap-1.5 active:cursor-grabbing"
+      >
+        {isLeftovers && <span className="flex-shrink-0 leading-none opacity-80">{LEFTOVERS_PREFIX}</span>}
+        {meal.visual.icon && <span className="flex-shrink-0 text-base leading-none">{meal.visual.icon}</span>}
+        <span className="truncate">{meal.name}</span>
+      </span>
+
       <button
         ref={setLeftoversNodeRef}
         {...leftoversListeners}
         {...leftoversAttributes}
         type="button"
-        onClick={() => setMenu((m) => (m === 'leftovers' ? null : 'leftovers'))}
-        aria-label={`Add ${meal.name} as leftovers on another day`}
-        title="Drag, or click, to add as leftovers on another day"
-        className="flex h-5 w-4 flex-shrink-0 touch-none items-center justify-center rounded-full text-[10px] leading-none opacity-70 hover:opacity-100"
+        onClick={onQuickLeftovers}
+        aria-label={`Add ${meal.name} leftovers to the next day`}
+        title="Leftovers: click for the next day, or drag to any day"
+        className={`${GHOST_BUTTON} touch-none text-base`}
       >
         ↺
       </button>
 
-      <span
-        {...chipAttributes}
-        {...chipListeners}
-        className="min-w-0 flex-1 cursor-grab truncate touch-none"
+      <Popover
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        panelClassName="w-[19rem]"
+        trigger={
+          <button
+            type="button"
+            onClick={() => setMenuOpen((open) => !open)}
+            aria-label={`More actions for ${meal.name}`}
+            aria-expanded={menuOpen}
+            className={`${GHOST_BUTTON} text-base leading-none`}
+          >
+            ⋯
+          </button>
+        }
       >
-        {isLeftovers ? '↩ ' : ''}
-        {meal.visual.icon ? `${meal.visual.icon} ` : ''}
-        {meal.name}
-      </span>
+        <p className={MENU_LABEL}>Move to</p>
+        {dayStrip(onMoveToDay, cook.date)}
 
-      <button
-        type="button"
-        onClick={() => setMenu((m) => (m === 'move' ? null : 'move'))}
-        aria-label={`Move ${meal.name}`}
-        className="flex-shrink-0 rounded-full px-1 text-current opacity-60 hover:opacity-100"
-      >
-        ⋯
-      </button>
+        <p className={`${MENU_LABEL} mt-3`}>Add leftovers to</p>
+        {dayStrip(onAddLeftovers)}
 
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Remove ${meal.name} from this day`}
-        className="flex-shrink-0 rounded-full px-1 text-current opacity-60 hover:opacity-100"
-      >
-        ×
-      </button>
-
-      {menu === 'move' && (
-        <div className="absolute left-0 top-full z-10 mt-1 w-40 rounded-lg border border-gray-200 bg-white p-1 text-gray-900 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
+        <div className="mt-3 flex items-center gap-1 border-t border-gray-200 pt-3 dark:border-gray-800">
           <button
             type="button"
             onClick={() => {
               onReorder('left')
-              setMenu(null)
+              setMenuOpen(false)
             }}
             disabled={!canMoveLeft}
-            className="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-gray-800"
+            className="rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            ‹ Move earlier
+            ‹ Earlier
           </button>
           <button
             type="button"
             onClick={() => {
               onReorder('right')
-              setMenu(null)
+              setMenuOpen(false)
             }}
             disabled={!canMoveRight}
-            className="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:hover:bg-gray-800"
+            className="rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent dark:text-gray-300 dark:hover:bg-gray-800"
           >
-            Move later ›
+            Later ›
           </button>
-          <div className="my-1 border-t border-gray-200 dark:border-gray-800" />
-          <p className="px-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-600">
-            Move to day
-          </p>
-          {otherDays.map((d) => (
-            <button
-              key={toISODate(d)}
-              type="button"
-              onClick={() => {
-                onMoveToDay(toISODate(d))
-                setMenu(null)
-              }}
-              className="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              {format(d, 'EEE d')}
-            </button>
-          ))}
+          <button
+            type="button"
+            onClick={() => {
+              onDelete()
+              setMenuOpen(false)
+            }}
+            className="ml-auto rounded-lg px-2 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+          >
+            Remove
+          </button>
         </div>
-      )}
-
-      {menu === 'leftovers' && (
-        <div className="absolute left-0 top-full z-10 mt-1 w-40 rounded-lg border border-gray-200 bg-white p-1 text-gray-900 shadow-lg dark:border-gray-800 dark:bg-gray-900 dark:text-gray-100">
-          <p className="px-2 pb-1 text-[10px] uppercase tracking-wide text-gray-400 dark:text-gray-600">
-            Add leftovers to
-          </p>
-          {weekDays.map((d) => (
-            <button
-              key={toISODate(d)}
-              type="button"
-              onClick={() => {
-                onAddLeftovers(toISODate(d))
-                setMenu(null)
-              }}
-              className="block w-full rounded-md px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-800"
-            >
-              {format(d, 'EEE d')}
-            </button>
-          ))}
-        </div>
-      )}
+      </Popover>
     </div>
   )
 }

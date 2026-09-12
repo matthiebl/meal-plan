@@ -1,9 +1,7 @@
-import { format } from 'date-fns'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { addCook, addLeftovers, deleteCook, moveCook, reorderDay, restoreCook, setShopDate } from '../data/mutations'
 import { useWeekMeta } from '../data/useWeekMeta'
-import { fromISODate, nextWeek, previousWeek, toISODate, weekDays } from '../lib/dates'
+import { formatISODay, nextISODate, toISODate, weekDays } from '../lib/dates'
 import { cooksOnDate } from '../lib/planner'
 import type { Cook, Meal } from '../types'
 import DayRow from './DayRow'
@@ -16,10 +14,11 @@ type WeekViewProps = {
   cooks: Cook[]
 }
 
+/** A message with an optional undo, shown briefly at the foot of the pane. */
+type Toast = { message: string; undo?: () => void }
+
 /** Saturday through the following Saturday, eight day rows. See PLAN.md §6. */
 export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
-  const navigate = useNavigate()
-
   const mealsById = useMemo(() => new Map(meals.map((meal) => [meal.id, meal])), [meals])
   const activeMeals = useMemo(() => meals.filter((meal) => !meal.archived), [meals])
   const days = useMemo(() => weekDays(saturday), [saturday])
@@ -55,6 +54,26 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
     return map
   }, [startSaturdayISO, startSundayISO, endSaturdayISO, startWeekShopDate, endWeekShopDate])
 
+  // Every destructive or off-screen action names what it did and offers an
+  // undo for a few seconds. See PLAN.md §6.
+  const [toast, setToast] = useState<Toast | null>(null)
+  const toastTimeoutRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(toastTimeoutRef.current), [])
+
+  function showToast(next: Toast) {
+    window.clearTimeout(toastTimeoutRef.current)
+    setToast(next)
+    toastTimeoutRef.current = window.setTimeout(() => setToast(null), UNDO_WINDOW_MS)
+  }
+
+  function runUndo() {
+    if (!toast?.undo) return
+    window.clearTimeout(toastTimeoutRef.current)
+    toast.undo()
+    setToast(null)
+  }
+
   function handleAddCook(date: string, mealId: string) {
     const order = cooksByDay.get(date)?.length ?? 0
     addCook({ mealId, date, kind: 'cook', order })
@@ -85,89 +104,71 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
 
   function handleAddLeftovers(cook: Cook, toDate: string) {
     const order = cooksOnDate(cooks, toDate).length
-    addLeftovers({ mealId: cook.mealId, date: toDate, order, fromCookId: cook.id })
+    const newId = addLeftovers({ mealId: cook.mealId, date: toDate, order, fromCookId: cook.id })
+    const name = mealsById.get(cook.mealId)?.name ?? 'Leftovers'
+    showToast({
+      message: `${name} leftovers added to ${formatISODay(toDate)}`,
+      undo: () => deleteCook(newId),
+    })
   }
 
-  // A deleted cook can be brought back for a few seconds before it is gone
-  // for good — deleteCook is otherwise the only hard, undoable-by-nothing
-  // delete in the app. See PLAN.md §6.
-  const [pendingUndo, setPendingUndo] = useState<Cook | null>(null)
-  const undoTimeoutRef = useRef<number | undefined>(undefined)
-
-  useEffect(() => () => window.clearTimeout(undoTimeoutRef.current), [])
+  /** The one-click half of the leftovers gesture: tomorrow, the usual answer. */
+  function handleQuickLeftovers(cook: Cook) {
+    handleAddLeftovers(cook, nextISODate(cook.date))
+  }
 
   function handleDeleteCook(cook: Cook) {
     deleteCook(cook.id)
-    window.clearTimeout(undoTimeoutRef.current)
-    setPendingUndo(cook)
-    undoTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), UNDO_WINDOW_MS)
-  }
-
-  function handleUndoDelete() {
-    if (!pendingUndo) return
-    window.clearTimeout(undoTimeoutRef.current)
-    restoreCook(pendingUndo)
-    setPendingUndo(null)
+    const name = mealsById.get(cook.mealId)?.name ?? 'cook'
+    showToast({
+      message: `Removed ${name} from ${formatISODay(cook.date)}`,
+      undo: () => restoreCook(cook),
+    })
   }
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
-        <button
-          type="button"
-          onClick={() => navigate(`/week/${toISODate(previousWeek(saturday))}`)}
-          className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          ← Previous
-        </button>
-        <span className="text-sm font-medium">
-          {toISODate(saturday)} – {toISODate(days[days.length - 1])}
-        </span>
-        <button
-          type="button"
-          onClick={() => navigate(`/week/${toISODate(nextWeek(saturday))}`)}
-          className="rounded-lg px-2 py-1 text-sm text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
-        >
-          Next →
-        </button>
-      </div>
-
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {days.map((day) => {
-          const iso = toISODate(day)
-          return (
-            <DayRow
-              key={iso}
-              date={day}
-              cooks={cooksByDay.get(iso) ?? []}
-              mealsById={mealsById}
-              activeMeals={activeMeals}
-              weekDays={days}
-              shopDay={shopDayByDate.get(iso)}
-              onAddCook={(mealId) => handleAddCook(iso, mealId)}
-              onDeleteCook={handleDeleteCook}
-              onReorderCook={handleReorderCook}
-              onMoveCookToDay={handleMoveCookToDay}
-              onAddLeftovers={handleAddLeftovers}
-            />
-          )
-        })}
+        {/* The eight rows share the pane's height rather than bunching at the
+            top, growing past their share only when a day fills up. */}
+        <div className="flex min-h-full flex-col">
+          {days.map((day, index) => {
+            const iso = toISODate(day)
+            return (
+              <DayRow
+                key={iso}
+                date={day}
+                cooks={cooksByDay.get(iso) ?? []}
+                mealsById={mealsById}
+                activeMeals={activeMeals}
+                weekDays={days}
+                showMonth={index === 0 || day.getDate() === 1}
+                shopDay={shopDayByDate.get(iso)}
+                onAddCook={(mealId) => handleAddCook(iso, mealId)}
+                onDeleteCook={handleDeleteCook}
+                onReorderCook={handleReorderCook}
+                onMoveCookToDay={handleMoveCookToDay}
+                onAddLeftovers={handleAddLeftovers}
+                onQuickLeftovers={handleQuickLeftovers}
+              />
+            )
+          })}
+        </div>
       </div>
 
-      {pendingUndo && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
-          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-gray-900 px-4 py-2 text-xs text-white shadow-lg dark:bg-white dark:text-gray-900">
-            <span>
-              Removed {mealsById.get(pendingUndo.mealId)?.name ?? 'cook'} from{' '}
-              {format(fromISODate(pendingUndo.date), 'EEE d')}
-            </span>
-            <button
-              type="button"
-              onClick={handleUndoDelete}
-              className="font-semibold underline underline-offset-2"
-            >
-              Undo
-            </button>
+      {toast && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4">
+          <div className="pointer-events-auto flex max-w-full items-center gap-4 rounded-full bg-gray-900 py-2.5 pr-3 pl-5 text-sm text-white shadow-xl dark:bg-white dark:text-gray-900">
+            <span className="truncate">{toast.message}</span>
+            {toast.undo && (
+              <button
+                type="button"
+                onClick={runUndo}
+                className="flex-shrink-0 rounded-full px-3 py-1 font-semibold underline underline-offset-2 hover:bg-white/15 dark:hover:bg-gray-900/10"
+              >
+                Undo
+              </button>
+            )}
           </div>
         </div>
       )}

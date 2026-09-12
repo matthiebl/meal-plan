@@ -1,6 +1,17 @@
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
+import { collection, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import type { Cook, CookKind, MealVisual } from '../types'
+
+/**
+ * Firestore applies a local write to `onSnapshot` immediately, so nothing in
+ * the UI waits on the returned promise: it settles only once the server
+ * acknowledges the write, which offline never happens. Awaiting one would
+ * leave a dialog open or a button spinning long after the change is on
+ * screen. Failures are logged rather than thrown. See PLAN.md §6.
+ */
+function fire(write: Promise<unknown>): void {
+  write.catch((error: unknown) => console.error('Firestore write failed', error))
+}
 
 export type MealInput = {
   name: string
@@ -8,22 +19,21 @@ export type MealInput = {
   visual: MealVisual
 }
 
-/** Creates a new meal. */
-export function addMeal(input: MealInput) {
-  return addDoc(collection(db, 'meals'), {
-    ...input,
-    createdAt: serverTimestamp(),
-  })
+/** Creates a new meal, returning its id immediately. */
+export function addMeal(input: MealInput): string {
+  const ref = doc(collection(db, 'meals'))
+  fire(setDoc(ref, { ...input, createdAt: serverTimestamp() }))
+  return ref.id
 }
 
 /** Updates a meal's editable fields. */
-export function updateMeal(mealId: string, edits: Partial<MealInput>) {
-  return updateDoc(doc(db, 'meals', mealId), edits)
+export function updateMeal(mealId: string, edits: Partial<MealInput>): void {
+  fire(updateDoc(doc(db, 'meals', mealId), edits))
 }
 
 /** Soft-deletes a meal. It is hidden from the meal list but still renders in the planner. */
-export function archiveMeal(mealId: string) {
-  return updateDoc(doc(db, 'meals', mealId), { archived: true })
+export function archiveMeal(mealId: string): void {
+  fire(updateDoc(doc(db, 'meals', mealId), { archived: true }))
 }
 
 export type CookInput = {
@@ -35,11 +45,10 @@ export type CookInput = {
 }
 
 /** Creates a cook (or leftovers) at the end of its day. No reindex needed. */
-export function addCook(input: CookInput) {
-  return addDoc(collection(db, 'cooks'), {
-    ...input,
-    createdAt: serverTimestamp(),
-  })
+export function addCook(input: CookInput): string {
+  const ref = doc(collection(db, 'cooks'))
+  fire(setDoc(ref, { ...input, createdAt: serverTimestamp() }))
+  return ref.id
 }
 
 export type LeftoversInput = {
@@ -49,13 +58,11 @@ export type LeftoversInput = {
   fromCookId: string
 }
 
-/** Creates a leftovers cook at the end of its day. */
-export function addLeftovers(input: LeftoversInput) {
-  return addDoc(collection(db, 'cooks'), {
-    ...input,
-    kind: 'leftovers' as const,
-    createdAt: serverTimestamp(),
-  })
+/** Creates a leftovers cook at the end of its day, returning its id so it can be undone. */
+export function addLeftovers(input: LeftoversInput): string {
+  const ref = doc(collection(db, 'cooks'))
+  fire(setDoc(ref, { ...input, kind: 'leftovers' as const, createdAt: serverTimestamp() }))
+  return ref.id
 }
 
 /**
@@ -63,21 +70,21 @@ export function addLeftovers(input: LeftoversInput) {
  * that day's cooks in the same batch. Used for drops at a precise position;
  * `addCook`/`addLeftovers` cover the simple append case.
  */
-export function insertCook(input: Omit<CookInput, 'order'>, dayIds: string[], index: number) {
+export function insertCook(input: Omit<CookInput, 'order'>, dayIds: string[], index: number): void {
   const batch = writeBatch(db)
   const newRef = doc(collection(db, 'cooks'))
   batch.set(newRef, { ...input, order: index, createdAt: serverTimestamp() })
   dayIds.forEach((id, i) => {
     batch.update(doc(db, 'cooks', id), { order: i < index ? i : i + 1 })
   })
-  return batch.commit()
+  fire(batch.commit())
 }
 
 /** Rewrites one day's cooks with consecutive order values in a single batch. */
-export function reorderDay(orderedCookIds: string[]) {
+export function reorderDay(orderedCookIds: string[]): void {
   const batch = writeBatch(db)
   orderedCookIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
-  return batch.commit()
+  fire(batch.commit())
 }
 
 /**
@@ -86,27 +93,27 @@ export function reorderDay(orderedCookIds: string[]) {
  * must not overlap: they are two different days' cook ids, excluding and
  * including `cookId` respectively.
  */
-export function moveCook(cookId: string, date: string, originDayIds: string[], destDayIds: string[]) {
+export function moveCook(cookId: string, date: string, originDayIds: string[], destDayIds: string[]): void {
   const batch = writeBatch(db)
   originDayIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
   destDayIds.forEach((id, index) => {
     batch.update(doc(db, 'cooks', id), id === cookId ? { order: index, date } : { order: index })
   })
-  return batch.commit()
+  fire(batch.commit())
 }
 
 /** Deletes a cook. Leftovers referencing it via `fromCookId` survive, per PLAN.md §3. */
-export function deleteCook(cookId: string) {
-  return deleteDoc(doc(db, 'cooks', cookId))
+export function deleteCook(cookId: string): void {
+  fire(deleteDoc(doc(db, 'cooks', cookId)))
 }
 
 /** Restores a just-deleted cook with its original id and fields — the undo for `deleteCook`. */
-export function restoreCook(cook: Cook) {
+export function restoreCook(cook: Cook): void {
   const { id, ...data } = cook
-  return setDoc(doc(db, 'cooks', id), data)
+  fire(setDoc(doc(db, 'cooks', id), data))
 }
 
 /** Sets a week's shop day — its own Saturday, or the Sunday right after. */
-export function setShopDate(saturdayISO: string, shopDate: string) {
-  return setDoc(doc(db, 'weeks', saturdayISO), { shopDate })
+export function setShopDate(saturdayISO: string, shopDate: string): void {
+  fire(setDoc(doc(db, 'weeks', saturdayISO), { shopDate }))
 }

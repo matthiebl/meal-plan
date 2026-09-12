@@ -119,14 +119,18 @@ arbitrary colours break palette coherence and dark-mode contrast.
    `teal`, `sky`, `indigo`, `violet`. Each is defined in `src/index.css` under `@theme` as
    a light/dark pair so contrast holds in both themes.
 2. **Fill** — exactly three treatments:
-   - `solid` — saturated background, light text
+   - `solid` — saturated background, with whichever of near-black or white text contrasts
+     against that token in that theme. The ten tokens span a wide lightness range and all
+     lighten under `.dark`, so one fixed text colour is unreadable on several of them.
    - `soft` — ~10% tinted background, coloured text
    - `outline` — transparent background, coloured border
 3. **Icon** — an optional single emoji rendered before the name.
 
 **Leftovers styling is derived, never chosen.** A `leftovers` cook renders with its meal's
 colour plus: a dashed left edge, a `↩` prefix, and reduced opacity. This treatment is
-fixed so leftovers are recognisable by construction.
+fixed so leftovers are recognisable by construction. The prefix carries a
+text-presentation selector (`U+FE0E`); bare `↩` is drawn on most systems as a blue
+emoji tile that reads as an unrelated icon.
 
 ## 6. Layout and interaction
 
@@ -145,6 +149,9 @@ A single large scrolling list of every non-archived meal. Each meal card shows:
 - times cooked
 - next planned date, if any
 
+Days since is the card's headline figure, set apart from the rest of the line, because
+it is what the default sort orders by.
+
 Controls: a name search, and a sort selector over **days since (descending, default)**,
 name, servings, and times cooked. The default sort is the answer to "what has not been
 cooked in a while"; no separate view exists for that.
@@ -152,26 +159,37 @@ cooked in a while"; no separate view exists for that.
 Meals are created and edited in a dialog covering name, servings, and the three visual
 dimensions from §5.
 
+**A search that matches nothing offers to create that meal, with the name prefilled.**
+Coming up empty is the moment the meal is most likely missing from the library, so it is
+the moment to offer to add it, rather than making it a separate trip to a New meal
+button.
+
 ### Right pane — planner
 
-Two views, switched at the top of the pane.
+Two views. One toolbar at the top of the pane carries everything that moves the planner
+— previous, next, **today**, and the week/month switch — and serves both views, so
+neither spends vertical space on navigation of its own.
 
 **Week view** (the primary view):
 
 - Saturday through to the following Saturday inclusive — eight day rows.
 - Each day is a horizontal band; its cooks sit side by side and the band grows as cooks
   are added. There is no limit on cooks per day.
+- The eight rows share the pane's height, growing past an equal share only when a day
+  fills up. They do not bunch at the top of a tall window.
+- The width a day's cooks have not filled is that day's add button, so spare room reads
+  as somewhere to drop a meal rather than as emptiness.
 - Both Saturdays carry a shop-day marker. The marker can be moved to the Sunday of that
-  week, persisted as `weeks/{saturdayISO}.shopDate`.
-- Today's row is highlighted.
-- Previous/next week controls.
+  week, persisted as `weeks/{saturdayISO}.shopDate`. Its slot is reserved on every row,
+  so a day carrying one is no taller than its neighbours.
+- Today's row is highlighted and its date circled.
 
 **Month view** (for historical browsing):
 
 - A Sunday-to-Saturday grid, six rows.
-- Compact chips: colour dot plus truncated meal name.
+- Compact chips: colour dot plus truncated meal name. A day with more cooks than its
+  cell fits ends in a `+n more` line rather than clipping them.
 - Not a drag target. Clicking a day switches to the week view containing that day.
-- Previous/next month controls.
 - Today's cell is highlighted; days outside the displayed month are dimmed.
 
 ### Routes
@@ -196,17 +214,37 @@ One `DndContext` wraps both panes. Four gestures:
 Requirements:
 
 - The leftovers gesture is an **explicit small grab-tab on the cook chip**, not a modifier
-  drag. It must be discoverable without instruction and must work on touch.
+  drag. It must be discoverable without instruction and must work on touch. Dragging the
+  tab places leftovers on any day; clicking it adds them to the next day, which is the
+  answer nearly every time.
 - Every day row is its own droppable, so empty days accept drops.
 - A `DragOverlay` renders the floating chip.
 - Reordering and moving between days must feel immediate, because re-planning mid-week is
   the common case.
 - There is no hand-rolled optimistic state. Firestore applies local writes to `onSnapshot`
   immediately, so the write is the update.
-- Every drag gesture has a click/keyboard equivalent: a `+` on each day row adds a cook,
-  and cook chips can be moved and deleted without dragging. Drag is never the only path.
-- Deleting a cook chip is undoable: a toast names the removed meal and day and offers
-  Undo for a few seconds, restoring the same cook document. This is the only hard,
+- **Nothing in the UI waits on a write.** A Firestore write promise settles only when the
+  server acknowledges it, which offline never happens, so awaiting one holds a dialog
+  open or a button disabled long after the change is on screen. Mutations issue the write
+  and return; failures are logged.
+- Every drag gesture has a click/keyboard equivalent: each day row's add button adds a
+  cook, and cook chips can be moved and deleted without dragging. Drag is never the only
+  path.
+- The day row's meal picker searches the library, and on no match offers to create that
+  meal with the name prefilled. The new meal is planned on that day as well as added to
+  the library — planning it is why it was searched for.
+- A cook chip's `⋯` menu offers **move to** and **add leftovers to** as a strip of the
+  week's eight days — a small calendar to point at, never a list of day names to read
+  down. It also reorders the chip within its day and removes it.
+- A cook chip's menu and a day's meal picker flip above or right-align themselves when
+  there is no room below. Both panes scroll, so a panel that always opened downwards
+  would be clipped.
+- An open panel, **and the chip that owns it**, are raised above the rest of the planner.
+  A cook chip carries a drag transform, which makes it a stacking context, so a z-index
+  on the panel alone cannot lift it over later rows — whose own add buttons are
+  positioned, and would otherwise paint straight through the open panel.
+- Removing a cook, and adding leftovers to a day, are undoable: a toast names what
+  changed and offers Undo for a few seconds. Removal is the only hard,
   irreversible-by-default delete in the app, since meals are archived rather than deleted
   (see §3) and weeks are never deleted at all.
 
@@ -251,6 +289,8 @@ src/
     CookChip.tsx
     MonthView.tsx
     DragOverlayChip.tsx
+    Popover.tsx          # anchored panel that flips to stay on screen:
+                         # the day picker, the cook chip menu
   App.tsx                # two-pane shell, routes, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme colour tokens

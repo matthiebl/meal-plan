@@ -34,3 +34,19 @@
   --color-meal-indigo: #818cf8;
   --color-meal-violet: #a78bfa;
 }
+
+/*
+ * Every control in the app is a plain button, so a single visible focus ring
+ * keeps keyboard paths — required for each drag gesture, per PLAN.md §6 —
+ * traceable without ring classes at each call site.
+ */
+@layer base {
+  :where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: 2px solid var(--color-sky-500);
+    outline-offset: 2px;
+  }
+
+  body {
+    -webkit-font-smoothing: antialiased;
+  }
+}

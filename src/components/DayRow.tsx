@@ -1,11 +1,14 @@
 import { useDroppable } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { format } from 'date-fns'
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { isToday, toISODate } from '../lib/dates'
+import { useMemo, useState } from 'react'
+import { isToday, toISODate, todayISODate } from '../lib/dates'
 import { cookDragId, dayDropId } from '../lib/dnd'
+import { dotClasses } from '../lib/visuals'
 import type { Cook, Meal } from '../types'
 import CookChip from './CookChip'
+import MealDialog from './MealDialog'
+import Popover from './Popover'
 
 type ShopDay = { active: boolean; onSet: () => void }
 
@@ -15,18 +18,22 @@ type DayRowProps = {
   mealsById: Map<string, Meal>
   activeMeals: Meal[]
   weekDays: Date[]
+  /** Whether to label the month — the first row, and wherever a month turns over. */
+  showMonth: boolean
   shopDay?: ShopDay
   onAddCook: (mealId: string) => void
   onDeleteCook: (cook: Cook) => void
   onReorderCook: (cookId: string, direction: 'left' | 'right') => void
   onMoveCookToDay: (cookId: string, date: string) => void
   onAddLeftovers: (cook: Cook, date: string) => void
+  onQuickLeftovers: (cook: Cook) => void
 }
 
 /**
  * One day band in the week view: its cooks side by side, growing as cooks
- * are added. Its own droppable, so an empty day still accepts drops. See
- * PLAN.md §6.
+ * are added. Its own droppable, so an empty day still accepts drops — and
+ * the space a day has not filled is itself the add button, which makes the
+ * drop target obvious rather than leaving the row half empty. See PLAN.md §6.
  */
 export default function DayRow({
   date,
@@ -34,40 +41,27 @@ export default function DayRow({
   mealsById,
   activeMeals,
   weekDays,
+  showMonth,
   shopDay,
   onAddCook,
   onDeleteCook,
   onReorderCook,
   onMoveCookToDay,
   onAddLeftovers,
+  onQuickLeftovers,
 }: DayRowProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [query, setQuery] = useState('')
-  const containerRef = useRef<HTMLDivElement>(null)
+  // A search that finds nothing offers to create that meal, which then lands
+  // on this day — the point of searching here was to plan it.
+  const [creatingName, setCreatingName] = useState<string | null>(null)
   const today = isToday(date)
   const iso = toISODate(date)
+  const past = iso < todayISODate()
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: dayDropId(iso),
     data: { type: 'day', date: iso },
   })
-
-  useEffect(() => {
-    if (!pickerOpen) return
-    function onPointerDown(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setPickerOpen(false)
-      }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setPickerOpen(false)
-    }
-    window.addEventListener('mousedown', onPointerDown)
-    window.addEventListener('keydown', onKeyDown)
-    return () => {
-      window.removeEventListener('mousedown', onPointerDown)
-      window.removeEventListener('keydown', onKeyDown)
-    }
-  }, [pickerOpen])
 
   const filteredMeals = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -80,38 +74,72 @@ export default function DayRow({
     setQuery('')
   }
 
+  function closePicker() {
+    setPickerOpen(false)
+    setQuery('')
+  }
+
+  function startCreating() {
+    setCreatingName(query.trim())
+    closePicker()
+  }
+
   return (
     <div
       ref={setDropRef}
-      className={`flex gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800 ${
-        today ? 'border-l-2 border-l-gray-900 bg-gray-100 dark:border-l-white dark:bg-gray-900' : ''
-      } ${isOver ? 'bg-sky-50 ring-2 ring-inset ring-sky-300 dark:bg-sky-950/40 dark:ring-sky-700' : ''}`}
+      className={`flex min-h-[5.75rem] flex-1 gap-3 border-b border-l-4 border-gray-100 px-3 py-3 transition-colors md:gap-5 md:px-5 dark:border-gray-800 ${
+        today
+          ? 'border-l-gray-900 bg-gray-50 dark:border-l-white dark:bg-gray-800/40'
+          : 'border-l-transparent'
+      } ${isOver ? 'bg-sky-50 ring-2 ring-inset ring-sky-400 dark:bg-sky-950/40 dark:ring-sky-600' : ''}`}
     >
-      <div className="w-14 flex-shrink-0 pt-1 text-xs">
-        <div className={`font-semibold ${today ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
+      <div className="w-16 flex-shrink-0 md:w-20">
+        <div
+          className={`text-xs font-semibold uppercase tracking-wider ${
+            today ? 'text-gray-900 dark:text-white' : past ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'
+          }`}
+        >
           {format(date, 'EEE')}
         </div>
-        <div className="text-gray-400 dark:text-gray-600">{format(date, 'MMM d')}</div>
-        {shopDay && (
-          <button
-            type="button"
-            onClick={shopDay.onSet}
-            disabled={shopDay.active}
-            aria-pressed={shopDay.active}
-            title={shopDay.active ? 'Shop day' : 'Move shop day here'}
-            className={`mt-1 rounded-full px-1.5 py-0.5 text-[10px] leading-none ${
-              shopDay.active
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`flex h-9 w-9 items-center justify-center rounded-full text-xl font-semibold tabular-nums ${
+              today
                 ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                : 'border border-dashed border-gray-300 text-gray-300 hover:border-gray-400 hover:text-gray-500 dark:border-gray-700 dark:text-gray-700 dark:hover:border-gray-600 dark:hover:text-gray-500'
+                : past
+                  ? 'text-gray-400 dark:text-gray-600'
+                  : 'text-gray-800 dark:text-gray-200'
             }`}
           >
-            🛒
-          </button>
-        )}
+            {format(date, 'd')}
+          </span>
+          {showMonth && <span className="text-xs text-gray-400 dark:text-gray-500">{format(date, 'MMM')}</span>}
+        </div>
+        {/* Reserved on every row, so a day carrying a shop marker is not
+            taller than its neighbours. */}
+        <div className="mt-1.5 h-7">
+          {shopDay && (
+            <button
+              type="button"
+              onClick={shopDay.onSet}
+              disabled={shopDay.active}
+              aria-pressed={shopDay.active}
+              title={shopDay.active ? 'Shop day' : 'Move shop day here'}
+              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium leading-none transition-colors ${
+                shopDay.active
+                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
+                  : 'border border-dashed border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-600 dark:border-gray-700 dark:text-gray-600 dark:hover:border-amber-500 dark:hover:text-amber-400'
+              }`}
+            >
+              <span className="text-sm leading-none">🛒</span>
+              {shopDay.active && <span>Shop</span>}
+            </button>
+          )}
+        </div>
       </div>
 
       <SortableContext items={cooks.map((cook) => cookDragId(cook.id))} strategy={rectSortingStrategy}>
-        <div className="flex flex-1 flex-wrap items-start gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap content-start items-start gap-2">
           {cooks.map((cook, index) => {
             const meal = mealsById.get(cook.mealId)
             if (!meal) return null
@@ -127,51 +155,85 @@ export default function DayRow({
                 onReorder={(direction) => onReorderCook(cook.id, direction)}
                 onMoveToDay={(toDate) => onMoveCookToDay(cook.id, toDate)}
                 onAddLeftovers={(toDate) => onAddLeftovers(cook, toDate)}
+                onQuickLeftovers={() => onQuickLeftovers(cook)}
               />
             )
           })}
 
-          <div ref={containerRef} className="relative">
-            <button
-              type="button"
-              onClick={() => setPickerOpen((open) => !open)}
-              aria-label={`Add a cook on ${format(date, 'EEEE')}`}
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-gray-300 text-gray-400 hover:border-gray-400 hover:text-gray-600 dark:border-gray-700 dark:text-gray-600 dark:hover:border-gray-600 dark:hover:text-gray-400"
-            >
-              +
-            </button>
-
-            {pickerOpen && (
-              <div className="absolute left-0 top-8 z-10 w-56 rounded-lg border border-gray-200 bg-white p-2 shadow-lg dark:border-gray-800 dark:bg-gray-900">
-                <input
-                  type="search"
-                  autoFocus
-                  placeholder="Search meals…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="mb-2 w-full rounded-md border border-gray-300 px-2 py-1 text-xs dark:border-gray-700 dark:bg-gray-800"
-                />
-                <div className="max-h-48 overflow-y-auto">
-                  {filteredMeals.length === 0 && (
-                    <p className="p-2 text-center text-xs text-gray-400 dark:text-gray-600">No meals found.</p>
-                  )}
-                  {filteredMeals.map((meal) => (
-                    <button
-                      key={meal.id}
-                      type="button"
-                      onClick={() => pickMeal(meal.id)}
-                      className="flex w-full items-center gap-1 truncate rounded-md px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-800"
-                    >
-                      {meal.visual.icon ? `${meal.visual.icon} ` : ''}
-                      {meal.name}
-                    </button>
-                  ))}
+          <Popover
+            open={pickerOpen}
+            onClose={closePicker}
+            className="h-10 min-w-[7rem] flex-1"
+            panelClassName="w-72"
+            trigger={
+              <button
+                type="button"
+                onClick={() => setPickerOpen((open) => !open)}
+                aria-label={`Add a meal on ${format(date, 'EEEE d MMMM')}`}
+                className={`flex h-10 w-full items-center gap-1.5 rounded-xl border border-dashed text-sm transition-colors ${
+                  cooks.length === 0
+                    ? 'justify-center border-gray-300 text-gray-400 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:bg-gray-800/50'
+                    : 'justify-start border-transparent px-3 text-gray-300 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600 dark:text-gray-600 dark:hover:border-gray-700 dark:hover:bg-gray-800/50 dark:hover:text-gray-300'
+                }`}
+              >
+                <span className="text-base leading-none">+</span>
+                <span>{cooks.length === 0 ? 'Add a meal, or drop one here' : 'Add'}</span>
+              </button>
+            }
+          >
+            <input
+              type="search"
+              autoFocus
+              placeholder="Search meals…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return
+                if (filteredMeals.length > 0) pickMeal(filteredMeals[0].id)
+                else if (query.trim()) startCreating()
+              }}
+              className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+            />
+            <div className="max-h-64 overflow-y-auto">
+              {filteredMeals.length === 0 && (
+                <div className="space-y-2 p-2 text-center">
+                  <p className="text-sm text-gray-400 dark:text-gray-500">
+                    {activeMeals.length === 0 ? 'No meals in the library yet.' : 'No meals match.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={startCreating}
+                    className="w-full truncate rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
+                  >
+                    {query.trim() ? `Create “${query.trim()}”` : 'Create a meal'}
+                  </button>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+              {filteredMeals.map((meal) => (
+                <button
+                  key={meal.id}
+                  type="button"
+                  onClick={() => pickMeal(meal.id)}
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                >
+                  <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${dotClasses(meal.visual.color)}`} />
+                  {meal.visual.icon && <span className="text-base leading-none">{meal.visual.icon}</span>}
+                  <span className="truncate">{meal.name}</span>
+                </button>
+              ))}
+            </div>
+          </Popover>
         </div>
       </SortableContext>
+
+      {creatingName !== null && (
+        <MealDialog
+          meal={null}
+          initialName={creatingName}
+          onCreated={onAddCook}
+          onClose={() => setCreatingName(null)}
+        />
+      )}
     </div>
   )
 }

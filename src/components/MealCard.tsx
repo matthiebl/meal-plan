@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core'
+import { formatISODay } from '../lib/dates'
 import { mealDragId } from '../lib/dnd'
 import { chipClasses } from '../lib/visuals'
 import type { Meal, MealStats } from '../types'
@@ -9,15 +10,26 @@ type MealCardProps = {
   onEdit: () => void
 }
 
+/** How long ago a meal was last eaten, as the card's headline figure. */
+function sinceLabel(daysSince: number): { value: string; caption: string } {
+  if (daysSince === 0) return { value: 'Today', caption: 'last eaten' }
+  if (daysSince === 1) return { value: '1', caption: 'day ago' }
+  return { value: String(daysSince), caption: 'days ago' }
+}
+
 /**
  * One meal in the library: its visual, servings, and the §4 derived
- * statistics. Draggable onto a day to create a cook there. See PLAN.md §6.
+ * statistics. Days since is the headline figure, because it is what the
+ * default sort orders by and the question the library exists to answer.
+ * Draggable onto a day to create a cook there. See PLAN.md §6.
  */
 export default function MealCard({ meal, stats, onEdit }: MealCardProps) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mealDragId(meal.id),
     data: { type: 'meal', meal },
   })
+
+  const since = stats.daysSince === null ? null : sinceLabel(stats.daysSince)
 
   return (
     <button
@@ -26,38 +38,72 @@ export default function MealCard({ meal, stats, onEdit }: MealCardProps) {
       {...attributes}
       type="button"
       onClick={onEdit}
-      className={`w-full touch-none rounded-lg border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900 ${
+      title={`${meal.name} — drag onto a day to plan it, or click to edit`}
+      className={`w-full cursor-grab touch-none rounded-xl border border-gray-200 bg-white p-3 text-left transition-colors hover:border-gray-300 hover:bg-gray-50 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800/60 ${
         isDragging ? 'opacity-40' : ''
       }`}
     >
-      <div className="flex items-center justify-between gap-2">
-        <span className={`truncate rounded-full px-2.5 py-1 text-sm font-medium ${chipClasses(meal.visual)}`}>
-          {meal.visual.icon ? `${meal.visual.icon} ` : ''}
-          {meal.name}
-        </span>
-        <span className="flex-shrink-0 text-xs text-gray-400 dark:text-gray-600">
-          {meal.servings} servings
-        </span>
-      </div>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <span
+            className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${chipClasses(
+              meal.visual,
+            )}`}
+          >
+            {meal.visual.icon && <span className="flex-shrink-0 text-base leading-none">{meal.visual.icon}</span>}
+            <span className="truncate">{meal.name}</span>
+          </span>
 
-      <dl className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-        <div>
-          <dt className="inline text-gray-400 dark:text-gray-600">Last eaten: </dt>
-          <dd className="inline">
-            {stats.lastEaten ? `${stats.lastEaten} (${stats.daysSince}d ago)` : 'never'}
-          </dd>
+          <dl className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+            <div>
+              <dt className="sr-only">Servings</dt>
+              <dd>{meal.servings} servings</dd>
+            </div>
+            <span aria-hidden className="text-gray-300 dark:text-gray-700">
+              ·
+            </span>
+            <div>
+              <dt className="sr-only">Times cooked</dt>
+              <dd>
+                cooked {stats.timesCooked}
+                {'×'}
+              </dd>
+            </div>
+            {stats.lastEaten && (
+              <>
+                <span aria-hidden className="text-gray-300 dark:text-gray-700">
+                  ·
+                </span>
+                <div>
+                  <dt className="sr-only">Last eaten</dt>
+                  <dd>last {formatISODay(stats.lastEaten)}</dd>
+                </div>
+              </>
+            )}
+          </dl>
+
+          {stats.nextPlanned && (
+            <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
+              Planned {formatISODay(stats.nextPlanned)}
+            </p>
+          )}
         </div>
-        <div>
-          <dt className="inline text-gray-400 dark:text-gray-600">Times cooked: </dt>
-          <dd className="inline">{stats.timesCooked}</dd>
+
+        <div className="flex-shrink-0 text-right">
+          {since ? (
+            <>
+              <div className="text-2xl font-semibold leading-none tabular-nums text-gray-800 dark:text-gray-100">
+                {since.value}
+              </div>
+              <div className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{since.caption}</div>
+            </>
+          ) : (
+            <span className="inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+              never
+            </span>
+          )}
         </div>
-        {stats.nextPlanned && (
-          <div>
-            <dt className="inline text-gray-400 dark:text-gray-600">Next: </dt>
-            <dd className="inline">{stats.nextPlanned}</dd>
-          </div>
-        )}
-      </dl>
+      </div>
     </button>
   )
 }

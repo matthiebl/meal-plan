@@ -96,3 +96,29 @@ export function isSameMonthAs(date: Date, month: Date): boolean {
 export function daysSince(iso: string): number {
   return differenceInCalendarDays(new Date(), fromISODate(iso))
 }
+
+/** The day after a 'YYYY-MM-DD' string. */
+export function nextISODate(iso: string): string {
+  return toISODate(addDays(fromISODate(iso), 1))
+}
+
+/** A week as one readable label, e.g. '12 – 19 Sep 2026' or '27 Sep – 4 Oct 2026'. */
+export function formatWeekRange(saturday: Date): string {
+  const end = addDays(saturday, 7)
+  return `${format(saturday, isSameMonthFns(saturday, end) ? 'd' : 'd MMM')} – ${format(end, 'd MMM yyyy')}`
+}
+
+/** A 'YYYY-MM-DD' string as a readable day, e.g. 'Fri 12 Sep'. */
+export function formatISODay(iso: string): string {
+  return format(fromISODate(iso), 'EEE d MMM')
+}
+
+/** True when `saturday` starts the week containing today. */
+export function isCurrentWeek(saturday: Date): boolean {
+  return isSameDay(saturday, weekStartSaturday(new Date()))
+}
+
+/** True when `month` falls in the current calendar month. */
+export function isCurrentMonth(month: Date): boolean {
+  return isSameMonthFns(month, new Date())
+}
