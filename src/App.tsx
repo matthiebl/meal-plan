@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import MealList from './components/MealList'
 import { signIn } from './lib/firebase'
 
 function useDarkMode() {
@@ -22,7 +23,7 @@ function Shell() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
       <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
-        <div className="p-4 text-sm text-gray-400 dark:text-gray-600">Meal library</div>
+        <MealList />
       </aside>
       <section className="flex-1 overflow-y-auto">
         <div className="p-4 text-sm text-gray-400 dark:text-gray-600">Planner</div>

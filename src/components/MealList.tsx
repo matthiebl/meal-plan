@@ -1,0 +1,125 @@
+import { useCallback, useMemo, useState } from 'react'
+import { useMeals } from '../data/useMeals'
+import type { Meal, MealStats } from '../types'
+import MealCard from './MealCard'
+import MealDialog from './MealDialog'
+
+type SortKey = 'daysSince' | 'name' | 'servings' | 'timesCooked'
+
+const SORT_LABELS: Record<SortKey, string> = {
+  daysSince: 'Days since',
+  name: 'Name',
+  servings: 'Servings',
+  timesCooked: 'Times cooked',
+}
+
+// TODO(phase 3): replace with useMealStats, derived from the cook list.
+const EMPTY_STATS: MealStats = {
+  lastEaten: null,
+  daysSince: null,
+  timesCooked: 0,
+  nextPlanned: null,
+}
+
+function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: SortKey): Meal[] {
+  const sorted = [...meals]
+  switch (sortKey) {
+    case 'name':
+      return sorted.sort((a, b) => a.name.localeCompare(b.name))
+    case 'servings':
+      return sorted.sort((a, b) => b.servings - a.servings)
+    case 'timesCooked':
+      return sorted.sort((a, b) => statsFor(b).timesCooked - statsFor(a).timesCooked)
+    case 'daysSince':
+      // Never-eaten sorts first, alongside the longest-overdue meals.
+      return sorted.sort((a, b) => {
+        const aDays = statsFor(a).daysSince ?? Infinity
+        const bDays = statsFor(b).daysSince ?? Infinity
+        return bDays - aDays
+      })
+  }
+}
+
+/** The left pane: every non-archived meal, searchable and sortable. See PLAN.md §6. */
+export default function MealList() {
+  const { meals } = useMeals()
+  const [search, setSearch] = useState('')
+  const [sortKey, setSortKey] = useState<SortKey>('daysSince')
+  const [dialogState, setDialogState] = useState<{ open: boolean; meal: Meal | null }>({
+    open: false,
+    meal: null,
+  })
+
+  // TODO(phase 3): replace with useMealStats, keyed by mealId and derived from the cook list.
+  const statsById = useMemo(
+    () => new Map<string, MealStats>(meals.map((meal) => [meal.id, EMPTY_STATS])),
+    [meals],
+  )
+  const statsFor = useCallback(
+    (meal: Meal) => statsById.get(meal.id) ?? EMPTY_STATS,
+    [statsById],
+  )
+
+  const visible = useMemo(() => {
+    const query = search.trim().toLowerCase()
+    const active = meals.filter((meal) => !meal.archived)
+    const filtered = query ? active.filter((meal) => meal.name.toLowerCase().includes(query)) : active
+    return sortMeals(filtered, statsFor, sortKey)
+  }, [meals, search, sortKey, statsFor])
+
+  return (
+    <div className="flex h-full flex-col p-4">
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Meals</h2>
+        <button
+          type="button"
+          onClick={() => setDialogState({ open: true, meal: null })}
+          className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white dark:bg-white dark:text-gray-900"
+        >
+          + New meal
+        </button>
+      </div>
+
+      <div className="mb-3 flex gap-2">
+        <input
+          type="search"
+          placeholder="Search meals…"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
+        />
+        <select
+          value={sortKey}
+          onChange={(e) => setSortKey(e.target.value as SortKey)}
+          className="rounded-lg border border-gray-300 px-2 py-1.5 text-sm dark:border-gray-700 dark:bg-gray-800"
+        >
+          {Object.entries(SORT_LABELS).map(([key, label]) => (
+            <option key={key} value={key}>
+              {label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="flex-1 space-y-2 overflow-y-auto">
+        {visible.length === 0 && (
+          <p className="p-4 text-center text-sm text-gray-400 dark:text-gray-600">
+            {meals.length === 0 ? 'No meals yet.' : 'No meals match your search.'}
+          </p>
+        )}
+        {visible.map((meal) => (
+          <MealCard
+            key={meal.id}
+            meal={meal}
+            stats={statsFor(meal)}
+            onEdit={() => setDialogState({ open: true, meal })}
+          />
+        ))}
+      </div>
+
+      {dialogState.open && (
+        <MealDialog meal={dialogState.meal} onClose={() => setDialogState({ open: false, meal: null })} />
+      )}
+    </div>
+  )
+}

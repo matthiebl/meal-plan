@@ -254,7 +254,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
 - [x] **1. Foundations** — remove the template's `src/pages/` and demo layout; two-pane
       shell with dark toggle; `lib/firebase.ts` with anonymous auth; `types.ts`;
       `lib/dates.ts`; colour tokens in `index.css`; `firestore.rules`.
-- [ ] **2. Meals** — `useMeals`; left pane list with search and sort; meal create/edit
+- [x] **2. Meals** — `useMeals`; left pane list with search and sort; meal create/edit
       dialog with visual picker; archive. *Checkpoint: the real meal library can be
       entered.*
 - [ ] **3. Week planner** — eight Sat→Sat day rows; cook chips; add via `+`; delete;
