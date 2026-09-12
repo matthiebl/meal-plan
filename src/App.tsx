@@ -1,5 +1,4 @@
 import {
-  closestCenter,
   DndContext,
   DragOverlay,
   KeyboardSensor,
@@ -19,7 +18,7 @@ import Planner from './components/Planner'
 import { insertCook, moveCook, reorderDay } from './data/mutations'
 import { useCooks } from './data/useCooks'
 import { useMeals } from './data/useMeals'
-import type { DragData, DropData } from './lib/dnd'
+import { collisionDetection, type DragData, type DropData } from './lib/dnd'
 import { cooksOnDate } from './lib/planner'
 import type { Cook, Meal } from './types'
 
@@ -116,7 +115,7 @@ function Shell({ meals, cooks, mealsLoading }: ShellProps) {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

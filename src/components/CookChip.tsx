@@ -52,7 +52,12 @@ export default function CookChip({
     transform,
     transition,
     isDragging,
+    isOver,
+    active,
   } = useSortable({ id: cookDragId(cook.id), data: { type: 'cook', cook, meal } })
+  // isOver is only a useful "drop here" signal when it's some other item
+  // hovering this chip's slot, not this chip hovering its own.
+  const isDropTarget = isOver && !isDragging && active?.id !== cookDragId(cook.id)
   const {
     attributes: leftoversAttributes,
     listeners: leftoversListeners,
@@ -95,7 +100,9 @@ export default function CookChip({
         isLeftovers
           ? 'rounded-r-full border-l-2 border-current opacity-75 [border-left-style:dashed]'
           : 'rounded-full'
-      } ${isDragging ? 'opacity-40' : ''}`}
+      } ${isDragging ? 'opacity-40' : ''} ${
+        isDropTarget ? 'ring-2 ring-sky-500 ring-offset-1 dark:ring-offset-gray-950' : ''
+      }`}
     >
       <button
         ref={setLeftoversNodeRef}

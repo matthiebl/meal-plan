@@ -81,7 +81,7 @@ export default function DayRow({
       ref={setDropRef}
       className={`flex gap-3 border-b border-gray-200 px-4 py-3 dark:border-gray-800 ${
         today ? 'border-l-2 border-l-gray-900 bg-gray-100 dark:border-l-white dark:bg-gray-900' : ''
-      } ${isOver ? 'bg-sky-50 dark:bg-sky-950/40' : ''}`}
+      } ${isOver ? 'bg-sky-50 ring-2 ring-inset ring-sky-300 dark:bg-sky-950/40 dark:ring-sky-700' : ''}`}
     >
       <div className="w-14 flex-shrink-0 pt-1 text-xs">
         <div className={`font-semibold ${today ? 'text-gray-900 dark:text-white' : 'text-gray-700 dark:text-gray-300'}`}>
