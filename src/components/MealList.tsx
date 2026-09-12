@@ -7,6 +7,7 @@ import MealDialog from './MealDialog'
 type MealListProps = {
   meals: Meal[]
   cooks: Cook[]
+  loading: boolean
 }
 
 type SortKey = 'daysSince' | 'name' | 'servings' | 'timesCooked'
@@ -46,7 +47,7 @@ function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: 
 }
 
 /** The left pane: every non-archived meal, searchable and sortable. See PLAN.md §6. */
-export default function MealList({ meals, cooks }: MealListProps) {
+export default function MealList({ meals, cooks, loading }: MealListProps) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('daysSince')
   const [dialogState, setDialogState] = useState<{ open: boolean; meal: Meal | null }>({
@@ -102,24 +103,53 @@ export default function MealList({ meals, cooks }: MealListProps) {
       </div>
 
       <div className="flex-1 space-y-2 overflow-y-auto">
-        {visible.length === 0 && (
-          <p className="p-4 text-center text-sm text-gray-400 dark:text-gray-600">
-            {meals.length === 0 ? 'No meals yet.' : 'No meals match your search.'}
-          </p>
+        {loading ? (
+          <MealListSkeleton />
+        ) : (
+          <>
+            {visible.length === 0 && (
+              <p className="p-4 text-center text-sm text-gray-400 dark:text-gray-600">
+                {meals.length === 0 ? 'No meals yet.' : 'No meals match your search.'}
+              </p>
+            )}
+            {visible.map((meal) => (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                stats={statsFor(meal)}
+                onEdit={() => setDialogState({ open: true, meal })}
+              />
+            ))}
+          </>
         )}
-        {visible.map((meal) => (
-          <MealCard
-            key={meal.id}
-            meal={meal}
-            stats={statsFor(meal)}
-            onEdit={() => setDialogState({ open: true, meal })}
-          />
-        ))}
       </div>
 
       {dialogState.open && (
         <MealDialog meal={dialogState.meal} onClose={() => setDialogState({ open: false, meal: null })} />
       )}
     </div>
+  )
+}
+
+/** Placeholder cards shown while the initial meal snapshot is still loading. */
+function MealListSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="animate-pulse rounded-lg border border-gray-200 p-3 dark:border-gray-800"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="h-6 w-28 rounded-full bg-gray-200 dark:bg-gray-800" />
+            <div className="h-3 w-14 rounded bg-gray-200 dark:bg-gray-800" />
+          </div>
+          <div className="mt-3 flex gap-4">
+            <div className="h-3 w-20 rounded bg-gray-200 dark:bg-gray-800" />
+            <div className="h-3 w-16 rounded bg-gray-200 dark:bg-gray-800" />
+          </div>
+        </div>
+      ))}
+    </>
   )
 }

@@ -41,6 +41,7 @@ function useDarkMode() {
 type ShellProps = {
   meals: Meal[]
   cooks: Cook[]
+  mealsLoading: boolean
 }
 
 /**
@@ -48,7 +49,7 @@ type ShellProps = {
  * right. One DndContext wraps both panes, since the meal-card-to-day
  * gesture spans them. See PLAN.md §6.
  */
-function Shell({ meals, cooks }: ShellProps) {
+function Shell({ meals, cooks, mealsLoading }: ShellProps) {
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
 
   const sensors = useSensors(
@@ -121,7 +122,7 @@ function Shell({ meals, cooks }: ShellProps) {
     >
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
         <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
-          <MealList meals={meals} cooks={cooks} />
+          <MealList meals={meals} cooks={cooks} loading={mealsLoading} />
         </aside>
         <section className="flex-1 overflow-hidden">
           <Planner meals={meals} cooks={cooks} />
@@ -134,7 +135,7 @@ function Shell({ meals, cooks }: ShellProps) {
 
 function App() {
   const [dark, setDark] = useDarkMode()
-  const { meals } = useMeals()
+  const { meals, loading: mealsLoading } = useMeals()
   const { cooks } = useCooks()
 
   return (
@@ -160,10 +161,10 @@ function App() {
         </header>
 
         <Routes>
-          <Route path="/" element={<Shell meals={meals} cooks={cooks} />} />
-          <Route path="/week/:date" element={<Shell meals={meals} cooks={cooks} />} />
-          <Route path="/month/:ym" element={<Shell meals={meals} cooks={cooks} />} />
-          <Route path="*" element={<Shell meals={meals} cooks={cooks} />} />
+          <Route path="/" element={<Shell meals={meals} cooks={cooks} mealsLoading={mealsLoading} />} />
+          <Route path="/week/:date" element={<Shell meals={meals} cooks={cooks} mealsLoading={mealsLoading} />} />
+          <Route path="/month/:ym" element={<Shell meals={meals} cooks={cooks} mealsLoading={mealsLoading} />} />
+          <Route path="*" element={<Shell meals={meals} cooks={cooks} mealsLoading={mealsLoading} />} />
         </Routes>
       </div>
     </BrowserRouter>
