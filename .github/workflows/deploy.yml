@@ -18,6 +18,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The VITE_FIREBASE_* values are Environment variables scoped to
+    # "github-pages", not repository variables, so this job must declare the
+    # environment to see them.
+    environment: github-pages
     steps:
       - uses: actions/checkout@v4
 
