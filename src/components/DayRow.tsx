@@ -17,7 +17,7 @@ type DayRowProps = {
   weekDays: Date[]
   shopDay?: ShopDay
   onAddCook: (mealId: string) => void
-  onDeleteCook: (cookId: string) => void
+  onDeleteCook: (cook: Cook) => void
   onReorderCook: (cookId: string, direction: 'left' | 'right') => void
   onMoveCookToDay: (cookId: string, date: string) => void
   onAddLeftovers: (cook: Cook, date: string) => void
@@ -123,7 +123,7 @@ export default function DayRow({
                 canMoveLeft={index > 0}
                 canMoveRight={index < cooks.length - 1}
                 weekDays={weekDays}
-                onDelete={() => onDeleteCook(cook.id)}
+                onDelete={() => onDeleteCook(cook)}
                 onReorder={(direction) => onReorderCook(cook.id, direction)}
                 onMoveToDay={(toDate) => onMoveCookToDay(cook.id, toDate)}
                 onAddLeftovers={(toDate) => onAddLeftovers(cook, toDate)}

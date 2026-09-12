@@ -130,8 +130,10 @@ fixed so leftovers are recognisable by construction.
 
 ## 6. Layout and interaction
 
-A full-height two-pane shell. The panes stack into one column below the `md` breakpoint.
-There is a dark-mode toggle.
+A full-height two-pane shell. Below the `md` breakpoint the panes stack into one column,
+meal library above planner, with the meal library capped to 40% of the viewport height so
+both panes scroll independently within their own space rather than one pushing the other
+off-screen. There is a dark-mode toggle.
 
 ### Left pane — meal library
 
@@ -203,6 +205,10 @@ Requirements:
   immediately, so the write is the update.
 - Every drag gesture has a click/keyboard equivalent: a `+` on each day row adds a cook,
   and cook chips can be moved and deleted without dragging. Drag is never the only path.
+- Deleting a cook chip is undoable: a toast names the removed meal and day and offers
+  Undo for a few seconds, restoring the same cook document. This is the only hard,
+  irreversible-by-default delete in the app, since meals are archived rather than deleted
+  (see §3) and weeks are never deleted at all.
 
 ## 7. Firebase and access control
 
@@ -268,7 +274,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
       *Checkpoint: the app as specified.*
 - [x] **5. Month view and shop day** — historical grid; click-through to week; movable
       shop marker.
-- [ ] **6. Polish** — empty states, mobile stacking, undo for deletes, README, deploy.
+- [x] **6. Polish** — empty states, mobile stacking, undo for deletes, README, deploy.
 
 ## 10. Forward compatibility
 

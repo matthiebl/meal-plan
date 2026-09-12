@@ -102,7 +102,7 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
         </select>
       </div>
 
-      <div className="flex-1 space-y-2 overflow-y-auto">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
         {loading ? (
           <MealListSkeleton />
         ) : (

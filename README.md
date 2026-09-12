@@ -33,3 +33,19 @@ npm run lint      # Run ESLint
 ```bash
 firebase deploy --only firestore:rules
 ```
+
+## Deploy
+
+The app deploys to Firebase Hosting. One-time setup, per machine:
+
+```bash
+firebase login
+firebase use --add   # pick your Firebase project; writes a local, gitignored .firebaserc
+```
+
+Then, for every deploy:
+
+```bash
+npm run build
+firebase deploy --only hosting
+```

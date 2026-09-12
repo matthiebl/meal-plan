@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Created locally by `firebase use --add`; points at a specific Firebase
+# project, so it's never committed — same reasoning as .env.local.
+.firebaserc
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

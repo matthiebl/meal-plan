@@ -120,7 +120,7 @@ function Shell({ meals, cooks, mealsLoading }: ShellProps) {
       onDragEnd={handleDragEnd}
     >
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-        <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
+        <aside className="h-[40vh] flex-shrink-0 overflow-y-auto border-b border-gray-200 md:h-auto md:w-96 md:border-b-0 md:border-r dark:border-gray-800">
           <MealList meals={meals} cooks={cooks} loading={mealsLoading} />
         </aside>
         <section className="flex-1 overflow-hidden">

@@ -55,7 +55,7 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
         ))}
       </div>
 
-      <div className="grid flex-1 grid-cols-7 grid-rows-6 overflow-y-auto">
+      <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6 overflow-y-auto">
         {days.map((day) => {
           const iso = toISODate(day)
           const inMonth = isSameMonthAs(day, month)

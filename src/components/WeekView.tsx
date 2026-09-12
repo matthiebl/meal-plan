@@ -1,11 +1,14 @@
-import { useMemo } from 'react'
+import { format } from 'date-fns'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addCook, addLeftovers, deleteCook, moveCook, reorderDay, setShopDate } from '../data/mutations'
+import { addCook, addLeftovers, deleteCook, moveCook, reorderDay, restoreCook, setShopDate } from '../data/mutations'
 import { useWeekMeta } from '../data/useWeekMeta'
-import { nextWeek, previousWeek, toISODate, weekDays } from '../lib/dates'
+import { fromISODate, nextWeek, previousWeek, toISODate, weekDays } from '../lib/dates'
 import { cooksOnDate } from '../lib/planner'
 import type { Cook, Meal } from '../types'
 import DayRow from './DayRow'
+
+const UNDO_WINDOW_MS = 6000
 
 type WeekViewProps = {
   saturday: Date
@@ -85,8 +88,30 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
     addLeftovers({ mealId: cook.mealId, date: toDate, order, fromCookId: cook.id })
   }
 
+  // A deleted cook can be brought back for a few seconds before it is gone
+  // for good — deleteCook is otherwise the only hard, undoable-by-nothing
+  // delete in the app. See PLAN.md §6.
+  const [pendingUndo, setPendingUndo] = useState<Cook | null>(null)
+  const undoTimeoutRef = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(undoTimeoutRef.current), [])
+
+  function handleDeleteCook(cook: Cook) {
+    deleteCook(cook.id)
+    window.clearTimeout(undoTimeoutRef.current)
+    setPendingUndo(cook)
+    undoTimeoutRef.current = window.setTimeout(() => setPendingUndo(null), UNDO_WINDOW_MS)
+  }
+
+  function handleUndoDelete() {
+    if (!pendingUndo) return
+    window.clearTimeout(undoTimeoutRef.current)
+    restoreCook(pendingUndo)
+    setPendingUndo(null)
+  }
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-4 py-2 dark:border-gray-800">
         <button
           type="button"
@@ -107,7 +132,7 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {days.map((day) => {
           const iso = toISODate(day)
           return (
@@ -120,7 +145,7 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
               weekDays={days}
               shopDay={shopDayByDate.get(iso)}
               onAddCook={(mealId) => handleAddCook(iso, mealId)}
-              onDeleteCook={deleteCook}
+              onDeleteCook={handleDeleteCook}
               onReorderCook={handleReorderCook}
               onMoveCookToDay={handleMoveCookToDay}
               onAddLeftovers={handleAddLeftovers}
@@ -128,6 +153,24 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
           )
         })}
       </div>
+
+      {pendingUndo && (
+        <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-4">
+          <div className="pointer-events-auto flex items-center gap-3 rounded-full bg-gray-900 px-4 py-2 text-xs text-white shadow-lg dark:bg-white dark:text-gray-900">
+            <span>
+              Removed {mealsById.get(pendingUndo.mealId)?.name ?? 'cook'} from{' '}
+              {format(fromISODate(pendingUndo.date), 'EEE d')}
+            </span>
+            <button
+              type="button"
+              onClick={handleUndoDelete}
+              className="font-semibold underline underline-offset-2"
+            >
+              Undo
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
