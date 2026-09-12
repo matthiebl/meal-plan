@@ -1,3 +1,5 @@
+import { useDraggable } from '@dnd-kit/core'
+import { mealDragId } from '../lib/dnd'
 import { chipClasses } from '../lib/visuals'
 import type { Meal, MealStats } from '../types'
 
@@ -7,13 +9,26 @@ type MealCardProps = {
   onEdit: () => void
 }
 
-/** One meal in the library: its visual, servings, and the §4 derived statistics. */
+/**
+ * One meal in the library: its visual, servings, and the §4 derived
+ * statistics. Draggable onto a day to create a cook there. See PLAN.md §6.
+ */
 export default function MealCard({ meal, stats, onEdit }: MealCardProps) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: mealDragId(meal.id),
+    data: { type: 'meal', meal },
+  })
+
   return (
     <button
+      ref={setNodeRef}
+      {...listeners}
+      {...attributes}
       type="button"
       onClick={onEdit}
-      className="w-full rounded-lg border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900"
+      className={`w-full touch-none rounded-lg border border-gray-200 p-3 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-900 ${
+        isDragging ? 'opacity-40' : ''
+      }`}
     >
       <div className="flex items-center justify-between gap-2">
         <span className={`truncate rounded-full px-2.5 py-1 text-sm font-medium ${chipClasses(meal.visual)}`}>

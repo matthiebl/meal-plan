@@ -223,25 +223,27 @@ src/
     firebase.ts          # app init, db handle, anonymous sign-in
     dates.ts             # Saturday-week maths, month grid, ISO helpers
     visuals.ts           # colour tokens, fill treatments, chip class builder
+    planner.ts           # cooksOnDate: a day's cooks sorted by order
+    dnd.ts               # drag id helpers, DragData/DropData payload types
   data/
     useMeals.ts          # onSnapshot over meals
     useCooks.ts          # onSnapshot over cooks
     useMealStats.ts      # derives the §4 statistics
     useWeekMeta.ts       # shop-day read/write
-    mutations.ts         # addMeal, updateMeal, archiveMeal, addCook, moveCook,
-                         # reorderDay, addLeftovers, deleteCook
+    mutations.ts         # addMeal, updateMeal, archiveMeal, addCook, insertCook,
+                         # moveCook, reorderDay, addLeftovers, deleteCook
   components/
     MealList.tsx
     MealCard.tsx
     MealDialog.tsx       # create/edit
     VisualPicker.tsx
-    Planner.tsx          # view switch + DndContext
+    Planner.tsx          # view switch
     WeekView.tsx
     DayRow.tsx
     CookChip.tsx
     MonthView.tsx
     DragOverlayChip.tsx
-  App.tsx                # two-pane shell, routes, dark mode
+  App.tsx                # two-pane shell, routes, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme colour tokens
 firestore.rules
@@ -260,7 +262,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
 - [x] **3. Week planner** — eight Sat→Sat day rows; cook chips; add via `+`; delete;
       `useMealStats` wired into the left pane. *Checkpoint: usable for planning without
       dragging.*
-- [ ] **4. Drag and drop** — all four gestures from §6; batch reindexing; drag overlay.
+- [x] **4. Drag and drop** — all four gestures from §6; batch reindexing; drag overlay.
       *Checkpoint: the app as specified.*
 - [ ] **5. Month view and shop day** — historical grid; click-through to week; movable
       shop marker.

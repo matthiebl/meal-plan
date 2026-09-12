@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, serverTimestamp, updateDoc, writeBatch } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import type { CookKind, MealVisual } from '../types'
 
@@ -34,12 +34,65 @@ export type CookInput = {
   fromCookId?: string
 }
 
-/** Creates a cook (or leftovers) at a given position within its day. */
+/** Creates a cook (or leftovers) at the end of its day. No reindex needed. */
 export function addCook(input: CookInput) {
   return addDoc(collection(db, 'cooks'), {
     ...input,
     createdAt: serverTimestamp(),
   })
+}
+
+export type LeftoversInput = {
+  mealId: string
+  date: string
+  order: number
+  fromCookId: string
+}
+
+/** Creates a leftovers cook at the end of its day. */
+export function addLeftovers(input: LeftoversInput) {
+  return addDoc(collection(db, 'cooks'), {
+    ...input,
+    kind: 'leftovers' as const,
+    createdAt: serverTimestamp(),
+  })
+}
+
+/**
+ * Creates a cook at a specific index within a day, reindexing the rest of
+ * that day's cooks in the same batch. Used for drops at a precise position;
+ * `addCook`/`addLeftovers` cover the simple append case.
+ */
+export function insertCook(input: Omit<CookInput, 'order'>, dayIds: string[], index: number) {
+  const batch = writeBatch(db)
+  const newRef = doc(collection(db, 'cooks'))
+  batch.set(newRef, { ...input, order: index, createdAt: serverTimestamp() })
+  dayIds.forEach((id, i) => {
+    batch.update(doc(db, 'cooks', id), { order: i < index ? i : i + 1 })
+  })
+  return batch.commit()
+}
+
+/** Rewrites one day's cooks with consecutive order values in a single batch. */
+export function reorderDay(orderedCookIds: string[]) {
+  const batch = writeBatch(db)
+  orderedCookIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
+  return batch.commit()
+}
+
+/**
+ * Moves a cook to a different day at a given position, reindexing both the
+ * origin and destination days in one batch. `originDayIds` and `destDayIds`
+ * must not overlap: they are two different days' cook ids, excluding and
+ * including `cookId` respectively.
+ */
+export function moveCook(cookId: string, date: string, originDayIds: string[], destDayIds: string[]) {
+  const batch = writeBatch(db)
+  originDayIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
+  destDayIds.forEach((id, index) => {
+    batch.update(doc(db, 'cooks', id), id === cookId ? { order: index, date } : { order: index })
+  })
+  return batch.commit()
 }
 
 /** Deletes a cook. Leftovers referencing it via `fromCookId` survive, per PLAN.md §3. */

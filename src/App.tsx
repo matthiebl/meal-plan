@@ -1,10 +1,27 @@
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core'
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
+import DragOverlayChip from './components/DragOverlayChip'
 import MealList from './components/MealList'
 import Planner from './components/Planner'
+import { insertCook, moveCook, reorderDay } from './data/mutations'
 import { useCooks } from './data/useCooks'
 import { useMeals } from './data/useMeals'
 import { signIn } from './lib/firebase'
+import type { DragData, DropData } from './lib/dnd'
+import { cooksOnDate } from './lib/planner'
 import type { Cook, Meal } from './types'
 
 function useDarkMode() {
@@ -27,17 +44,92 @@ type ShellProps = {
   cooks: Cook[]
 }
 
-/** The full-height two-pane shell: meal library on the left, planner on the right. */
+/**
+ * The full-height two-pane shell: meal library on the left, planner on the
+ * right. One DndContext wraps both panes, since the meal-card-to-day
+ * gesture spans them. See PLAN.md §6.
+ */
 function Shell({ meals, cooks }: ShellProps) {
+  const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
+
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
+
+  function handleDragStart(event: DragStartEvent) {
+    setActiveDrag((event.active.data.current as DragData | undefined) ?? null)
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    setActiveDrag(null)
+    const { active, over } = event
+    if (!over) return
+
+    const activeData = active.data.current as DragData | undefined
+    const overData = over.data.current as DropData | undefined
+    if (!activeData || !overData) return
+
+    const destDate = overData.type === 'day' ? overData.date : overData.cook.date
+
+    if (activeData.type === 'meal' || activeData.type === 'leftovers') {
+      const destIds = cooksOnDate(cooks, destDate).map((c) => c.id)
+      const overIndex = overData.type === 'cook' ? destIds.indexOf(overData.cook.id) : -1
+      const index = overIndex >= 0 ? overIndex : destIds.length
+
+      if (activeData.type === 'meal') {
+        insertCook({ mealId: activeData.meal.id, date: destDate, kind: 'cook' }, destIds, index)
+      } else {
+        insertCook(
+          { mealId: activeData.cook.mealId, date: destDate, kind: 'leftovers', fromCookId: activeData.cook.id },
+          destIds,
+          index,
+        )
+      }
+      return
+    }
+
+    // activeData.type === 'cook': reindex within a day, or move across days.
+    const cook = activeData.cook
+    if (overData.type === 'cook' && overData.cook.id === cook.id) return
+
+    const destExisting = cooksOnDate(cooks, destDate)
+      .filter((c) => c.id !== cook.id)
+      .map((c) => c.id)
+    const overIndex = overData.type === 'cook' ? destExisting.indexOf(overData.cook.id) : -1
+    const index = overIndex >= 0 ? overIndex : destExisting.length
+    const destIds = [...destExisting.slice(0, index), cook.id, ...destExisting.slice(index)]
+
+    if (cook.date === destDate) {
+      const current = cooksOnDate(cooks, destDate).map((c) => c.id)
+      if (destIds.join() === current.join()) return
+      reorderDay(destIds)
+    } else {
+      const originIds = cooksOnDate(cooks, cook.date)
+        .filter((c) => c.id !== cook.id)
+        .map((c) => c.id)
+      moveCook(cook.id, destDate, originIds, destIds)
+    }
+  }
+
   return (
-    <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
-      <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
-        <MealList meals={meals} cooks={cooks} />
-      </aside>
-      <section className="flex-1 overflow-hidden">
-        <Planner meals={meals} cooks={cooks} />
-      </section>
-    </div>
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+    >
+      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+        <aside className="overflow-y-auto border-b border-gray-200 md:w-96 md:flex-shrink-0 md:border-b-0 md:border-r dark:border-gray-800">
+          <MealList meals={meals} cooks={cooks} />
+        </aside>
+        <section className="flex-1 overflow-hidden">
+          <Planner meals={meals} cooks={cooks} />
+        </section>
+      </div>
+      <DragOverlay>{activeDrag && <DragOverlayChip data={activeDrag} />}</DragOverlay>
+    </DndContext>
   )
 }
 

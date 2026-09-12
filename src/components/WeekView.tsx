@@ -1,7 +1,8 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { addCook, deleteCook } from '../data/mutations'
+import { addCook, addLeftovers, deleteCook, moveCook, reorderDay } from '../data/mutations'
 import { nextWeek, previousWeek, toISODate, weekDays } from '../lib/dates'
+import { cooksOnDate } from '../lib/planner'
 import type { Cook, Meal } from '../types'
 import DayRow from './DayRow'
 
@@ -21,17 +22,41 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
 
   const cooksByDay = useMemo(() => {
     const map = new Map<string, Cook[]>()
-    for (const day of days) map.set(toISODate(day), [])
-    for (const cook of cooks) {
-      map.get(cook.date)?.push(cook)
-    }
-    for (const dayCooks of map.values()) dayCooks.sort((a, b) => a.order - b.order)
+    for (const day of days) map.set(toISODate(day), cooksOnDate(cooks, toISODate(day)))
     return map
   }, [days, cooks])
 
   function handleAddCook(date: string, mealId: string) {
     const order = cooksByDay.get(date)?.length ?? 0
     addCook({ mealId, date, kind: 'cook', order })
+  }
+
+  // Click/keyboard equivalents for the drag gestures in PLAN.md §6.
+  function handleReorderCook(cookId: string, direction: 'left' | 'right') {
+    const cook = cooks.find((c) => c.id === cookId)
+    if (!cook) return
+    const dayIds = cooksOnDate(cooks, cook.date).map((c) => c.id)
+    const index = dayIds.indexOf(cookId)
+    const swapWith = direction === 'left' ? index - 1 : index + 1
+    if (swapWith < 0 || swapWith >= dayIds.length) return
+    const reordered = [...dayIds]
+    ;[reordered[index], reordered[swapWith]] = [reordered[swapWith], reordered[index]]
+    reorderDay(reordered)
+  }
+
+  function handleMoveCookToDay(cookId: string, toDate: string) {
+    const cook = cooks.find((c) => c.id === cookId)
+    if (!cook || cook.date === toDate) return
+    const originIds = cooksOnDate(cooks, cook.date)
+      .filter((c) => c.id !== cookId)
+      .map((c) => c.id)
+    const destIds = [...cooksOnDate(cooks, toDate).map((c) => c.id), cookId]
+    moveCook(cookId, toDate, originIds, destIds)
+  }
+
+  function handleAddLeftovers(cook: Cook, toDate: string) {
+    const order = cooksOnDate(cooks, toDate).length
+    addLeftovers({ mealId: cook.mealId, date: toDate, order, fromCookId: cook.id })
   }
 
   return (
@@ -66,8 +91,12 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
               cooks={cooksByDay.get(iso) ?? []}
               mealsById={mealsById}
               activeMeals={activeMeals}
+              weekDays={days}
               onAddCook={(mealId) => handleAddCook(iso, mealId)}
               onDeleteCook={deleteCook}
+              onReorderCook={handleReorderCook}
+              onMoveCookToDay={handleMoveCookToDay}
+              onAddLeftovers={handleAddLeftovers}
             />
           )
         })}
