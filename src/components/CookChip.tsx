@@ -30,7 +30,8 @@ type CookChipProps = {
 }
 
 const MENU_LABEL = 'mb-2 ml-0.5 text-xs text-ink-3'
-const MENU_ROW = 'flex w-full items-center gap-3 px-0.5 py-3 text-left text-[15px] md:py-2.5 md:text-sm'
+const MENU_ROW =
+  'flex w-full items-center gap-3 px-0.5 py-3 text-left text-[15px] md:py-2.5 md:text-sm'
 const REORDER_BUTTON =
   'flex h-8 items-center gap-0.5 rounded-full bg-surface-1 pr-3 pl-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40'
 
@@ -80,15 +81,22 @@ export default function CookChip({
     isDragging,
     isOver,
     active,
-  } = useSortable({ id: cookDragId(cook.id), data: { type: 'cook', cook, meal } })
+  } = useSortable({
+    id: cookDragId(cook.id),
+    data: { type: 'cook', cook, meal },
+  })
   // isOver is only a useful "drop here" signal when it's some other item
   // hovering this chip's slot, not this chip hovering its own.
-  const isDropTarget = isOver && !isDragging && active?.id !== cookDragId(cook.id)
+  const isDropTarget =
+    isOver && !isDragging && active?.id !== cookDragId(cook.id)
   const {
     attributes: leftoversAttributes,
     listeners: leftoversListeners,
     setNodeRef: setLeftoversNodeRef,
-  } = useDraggable({ id: leftoversDragId(cook.id), data: { type: 'leftovers', cook, meal } })
+  } = useDraggable({
+    id: leftoversDragId(cook.id),
+    data: { type: 'leftovers', cook, meal },
+  })
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -106,7 +114,7 @@ export default function CookChip({
 
   return (
     <div
-      ref={(node) => {
+      ref={node => {
         setChipNodeRef(node)
         chipRef.current = node
       }}
@@ -117,7 +125,9 @@ export default function CookChip({
       // positioned and raised, or later siblings (the add buttons, the rows
       // below) paint straight through the menu.
       className={`relative flex max-w-full items-center ${
-        isMobile ? 'w-full gap-1 rounded-2xl p-2' : 'h-9 max-w-[20rem] gap-0.5 rounded-[10px] p-1.25'
+        isMobile
+          ? 'w-full gap-1 rounded-2xl p-2'
+          : 'h-9 max-w-[20rem] gap-0.5 rounded-[10px] p-1.25'
       } ${menuOpen ? 'z-40' : ''} ${
         isLeftovers
           ? 'bg-transparent shadow-[inset_0_0_0_1px_var(--color-line-strong)]'
@@ -130,7 +140,7 @@ export default function CookChip({
         type="button"
         {...chipAttributes}
         {...chipListeners}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={() => setMenuOpen(open => !open)}
         aria-expanded={menuOpen}
         aria-label={`${isLeftovers ? 'Leftovers: ' : ''}${meal.name} — actions`}
         title={`${meal.name} — tap for actions, or drag to another day`}
@@ -151,19 +161,35 @@ export default function CookChip({
               className={isLeftovers ? 'opacity-70' : ''}
             />
             <span className="min-w-0 flex-1">
-              <span className={`block truncate text-[15px] font-medium ${isLeftovers ? 'text-ink-2' : 'text-ink'}`}>
+              <span
+                className={`block truncate text-[15px] font-medium ${isLeftovers ? 'text-ink-2' : 'text-ink'}`}
+              >
                 {meal.name}
               </span>
-              <span className={`mt-0.5 block truncate text-[13px] ${isLeftovers ? 'text-ink-3' : 'text-ink-2'}`}>
+              <span
+                className={`mt-0.5 block truncate text-[13px] ${isLeftovers ? 'text-ink-3' : 'text-ink-2'}`}
+              >
                 {isLeftovers ? detail : `Serves ${meal.servings} · ${detail}`}
               </span>
             </span>
           </>
         ) : (
           <>
-            <MealTile category={meal.category} size="chip" className={isLeftovers ? 'opacity-70' : ''} />
-            <span className={`flex min-w-0 items-center gap-1 text-[13px] ${isLeftovers ? 'text-ink-2' : 'text-ink'}`}>
-              {isLeftovers && <Icon name="leftovers" className="h-3.5 w-3.5" strokeWidth={2} />}
+            <MealTile
+              category={meal.category}
+              size="chip"
+              className={isLeftovers ? 'opacity-70' : ''}
+            />
+            <span
+              className={`flex min-w-0 items-center gap-1 text-[13px] ${isLeftovers ? 'text-ink-2' : 'text-ink'}`}
+            >
+              {isLeftovers && (
+                <Icon
+                  name="leftovers"
+                  className="h-3.5 w-3.5"
+                  strokeWidth={2}
+                />
+              )}
               <span className="truncate">{meal.name}</span>
             </span>
           </>
@@ -179,11 +205,15 @@ export default function CookChip({
           onClick={onQuickLeftovers}
           aria-label={`Add ${meal.name} leftovers to the next day`}
           title="Leftovers: click for the next day, or drag to any day"
-          className={`flex flex-shrink-0 touch-none items-center justify-center text-ink-3 transition-colors hover:bg-line hover:text-ink ${
+          className={`flex shrink-0 touch-none items-center justify-center text-ink-3 transition-colors hover:bg-line hover:text-ink ${
             isMobile ? 'h-9 w-9 rounded-[11px]' : 'h-6.5 w-6.5 rounded-md'
           }`}
         >
-          <Icon name="leftovers" className={isMobile ? 'h-5 w-5' : 'h-4 w-4'} strokeWidth={isMobile ? 1.8 : 2} />
+          <Icon
+            name="leftovers"
+            className={isMobile ? 'h-5 w-5' : 'h-4 w-4'}
+            strokeWidth={isMobile ? 1.8 : 2}
+          />
         </button>
       )}
 
@@ -208,7 +238,11 @@ export default function CookChip({
         }
       >
         <p className={MENU_LABEL}>Move to</p>
-        <DayStrip days={weekDays} onPick={pickDay(onMoveToDay)} currentDate={cook.date} />
+        <DayStrip
+          days={weekDays}
+          onPick={pickDay(onMoveToDay)}
+          currentDate={cook.date}
+        />
 
         <p className={`${MENU_LABEL} mt-4`}>Add leftovers to</p>
         <DayStrip

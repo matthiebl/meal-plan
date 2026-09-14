@@ -1,8 +1,14 @@
 import { format } from 'date-fns'
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isSameMonthAs, isToday, monthGrid, toISODate, weekStartSaturday } from '../lib/dates'
 import { markClasses } from '../lib/categories'
+import {
+  isSameMonthAs,
+  isToday,
+  monthGrid,
+  toISODate,
+  weekStartSaturday,
+} from '../lib/dates'
 import { cooksOnDate } from '../lib/planner'
 import { useIsMobile } from '../lib/responsive'
 import type { Cook, Meal } from '../types'
@@ -33,7 +39,10 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
   // shows each cook as a bar in its category's colour instead.
   const isMobile = useIsMobile()
 
-  const mealsById = useMemo(() => new Map(meals.map((meal) => [meal.id, meal])), [meals])
+  const mealsById = useMemo(
+    () => new Map(meals.map(meal => [meal.id, meal])),
+    [meals],
+  )
   const days = useMemo(() => monthGrid(month), [month])
 
   function goToDay(day: Date) {
@@ -42,8 +51,8 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
 
   return (
     <div className="flex h-full flex-col px-3 pb-3 md:px-4 md:pt-2 md:pb-4">
-      <div className="grid flex-shrink-0 grid-cols-7 gap-0.75 pb-1 text-center text-[11px] text-ink-3 md:text-left md:text-xs">
-        {WEEKDAYS.map((label) => (
+      <div className="grid shrink-0 grid-cols-7 gap-0.75 pb-1 text-center text-[11px] text-ink-3 md:text-left md:text-xs">
+        {WEEKDAYS.map(label => (
           <div key={label} className="md:px-2">
             {isMobile ? label[0] : label}
           </div>
@@ -51,13 +60,14 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
       </div>
 
       <div className="grid min-h-0 flex-1 grid-cols-7 grid-rows-6 gap-0.75">
-        {days.map((day) => {
+        {days.map(day => {
           const iso = toISODate(day)
           const inMonth = isSameMonthAs(day, month)
           const today = isToday(day)
           const dayCooks = cooksOnDate(cooks, iso)
           const max = isMobile ? MAX_BARS : MAX_NAMES
-          const shown = dayCooks.length > max ? dayCooks.slice(0, max - 1) : dayCooks
+          const shown =
+            dayCooks.length > max ? dayCooks.slice(0, max - 1) : dayCooks
           const hidden = dayCooks.length - shown.length
 
           return (
@@ -72,27 +82,31 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
             >
               <span
                 className={`text-center text-[11px] tabular-nums md:px-0.5 md:text-left md:text-xs ${
-                  today ? 'font-medium text-accent' : inMonth ? 'text-ink-2' : 'text-ink-3'
+                  today
+                    ? 'font-medium text-accent'
+                    : inMonth
+                      ? 'text-ink-2'
+                      : 'text-ink-3'
                 }`}
               >
                 {format(day, 'd')}
               </span>
 
               {isMobile
-                ? shown.map((cook) => {
+                ? shown.map(cook => {
                     const meal = mealsById.get(cook.mealId)
                     if (!meal) return null
                     return (
                       <span
                         key={cook.id}
                         title={meal.name}
-                        className={`h-1.25 flex-shrink-0 rounded-full ${markClasses(meal.category?.main)} ${
+                        className={`h-1.25 shrink-0 rounded-full ${markClasses(meal.category?.main)} ${
                           cook.kind === 'leftovers' ? 'opacity-50' : ''
                         }`}
                       />
                     )
                   })
-                : shown.map((cook) => {
+                : shown.map(cook => {
                     const meal = mealsById.get(cook.mealId)
                     if (!meal) return null
                     return (
@@ -103,10 +117,14 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
                         }`}
                       >
                         <span
-                          className={`h-2 w-2 flex-shrink-0 rounded-full ${markClasses(meal.category?.main)}`}
+                          className={`h-2 w-2 shrink-0 rounded-full ${markClasses(meal.category?.main)}`}
                         />
                         {cook.kind === 'leftovers' && (
-                          <Icon name="leftovers" className="-mr-1 h-3 w-3" strokeWidth={2} />
+                          <Icon
+                            name="leftovers"
+                            className="-mr-1 h-3 w-3"
+                            strokeWidth={2}
+                          />
                         )}
                         <span className="truncate">{meal.name}</span>
                       </span>
@@ -123,7 +141,9 @@ export default function MonthView({ month, meals, cooks }: MonthViewProps) {
         })}
       </div>
 
-      <p className="mt-2.5 ml-0.5 flex-shrink-0 text-xs text-ink-3 md:hidden">Tap any day to open its week</p>
+      <p className="mt-2.5 ml-0.5 shrink-0 text-xs text-ink-3 md:hidden">
+        Tap any day to open its week
+      </p>
     </div>
   )
 }

@@ -11,10 +11,20 @@ function StepButtons() {
   const { isWeek, goPrevious, goNext } = usePlannerRoute()
   return (
     <>
-      <button type="button" onClick={goPrevious} aria-label={isWeek ? 'Previous week' : 'Previous month'} className={NAV_BUTTON}>
+      <button
+        type="button"
+        onClick={goPrevious}
+        aria-label={isWeek ? 'Previous week' : 'Previous month'}
+        className={NAV_BUTTON}
+      >
         <Icon name="chevron-left" />
       </button>
-      <button type="button" onClick={goNext} aria-label={isWeek ? 'Next week' : 'Next month'} className={NAV_BUTTON}>
+      <button
+        type="button"
+        onClick={goNext}
+        aria-label={isWeek ? 'Next week' : 'Next month'}
+        className={NAV_BUTTON}
+      >
         <Icon name="chevron-right" />
       </button>
     </>
@@ -29,11 +39,21 @@ function ViewSwitch() {
       active ? 'bg-surface-2 text-ink shadow-sm' : 'text-ink-2 hover:text-ink'
     }`
   return (
-    <div className="flex flex-shrink-0 rounded-full bg-surface-1 p-0.75">
-      <button type="button" onClick={showWeek} aria-pressed={isWeek} className={segment(isWeek)}>
+    <div className="flex shrink-0 rounded-full bg-surface-1 p-0.75">
+      <button
+        type="button"
+        onClick={showWeek}
+        aria-pressed={isWeek}
+        className={segment(isWeek)}
+      >
         Week
       </button>
-      <button type="button" onClick={showMonth} aria-pressed={!isWeek} className={segment(!isWeek)}>
+      <button
+        type="button"
+        onClick={showMonth}
+        aria-pressed={!isWeek}
+        className={segment(!isWeek)}
+      >
         Month
       </button>
     </div>
@@ -59,7 +79,11 @@ export function PlannerToolbar() {
         type="button"
         onClick={goToday}
         disabled={showingToday}
-        title={showingToday ? `Already showing this ${isWeek ? 'week' : 'month'}` : undefined}
+        title={
+          showingToday
+            ? `Already showing this ${isWeek ? 'week' : 'month'}`
+            : undefined
+        }
         className="mr-1 rounded-full bg-surface-1 px-2.5 py-1.25 text-xs text-ink-2 transition-colors hover:text-ink disabled:opacity-50 disabled:hover:text-ink-2"
       >
         Today
@@ -79,23 +103,35 @@ export function PlannerMobileHeader() {
   const { isWeek, anchor, saturday, showingToday, goToday } = usePlannerRoute()
   const relative = formatWeekRelative(saturday)
   const isNear = relative.endsWith('week')
-  const title = isWeek ? (isNear ? relative : formatWeekRange(saturday, 'MMM')) : format(anchor, 'MMMM')
-  const subtitle = isWeek ? (isNear ? formatWeekRange(saturday) : format(saturday, 'yyyy')) : format(anchor, 'yyyy')
+  const title = isWeek
+    ? isNear
+      ? relative
+      : formatWeekRange(saturday, 'MMM')
+    : format(anchor, 'MMMM')
+  const subtitle = isWeek
+    ? isNear
+      ? formatWeekRange(saturday)
+      : format(saturday, 'yyyy')
+    : format(anchor, 'yyyy')
 
   return (
-    <header className="flex flex-shrink-0 items-center gap-2 px-4 pt-4 pb-1">
+    <header className="flex shrink-0 items-center gap-2 px-4 pt-4 pb-1">
       <div className="min-w-0 flex-1">
         <h2 className="truncate text-xl font-medium">{title}</h2>
         <p className="mt-0.5 flex min-w-0 items-center gap-2 text-[13px] text-ink-3">
           <span className="truncate">{subtitle}</span>
           {!showingToday && (
-            <button type="button" onClick={goToday} className="flex-shrink-0 text-accent">
+            <button
+              type="button"
+              onClick={goToday}
+              className="shrink-0 text-accent"
+            >
               Today
             </button>
           )}
         </p>
       </div>
-      <div className="flex flex-shrink-0 items-center">
+      <div className="flex shrink-0 items-center">
         <StepButtons />
       </div>
       <ViewSwitch />

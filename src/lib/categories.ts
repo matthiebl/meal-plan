@@ -3,7 +3,11 @@ import type { Category } from '../types'
 export type CategoryGroup = 'protein' | 'carb'
 
 /** Every category, in picker order: proteins, then carbs. See PLAN.md §5. */
-export const CATEGORIES: { id: Category; label: string; group: CategoryGroup }[] = [
+export const CATEGORIES: {
+  id: Category
+  label: string
+  group: CategoryGroup
+}[] = [
   { id: 'beef', label: 'Beef', group: 'protein' },
   { id: 'lamb', label: 'Lamb', group: 'protein' },
   { id: 'pork', label: 'Pork', group: 'protein' },
@@ -19,10 +23,9 @@ export const CATEGORIES: { id: Category; label: string; group: CategoryGroup }[]
   { id: 'potato', label: 'Potato', group: 'carb' },
 ]
 
-export const CATEGORY_LABELS = Object.fromEntries(CATEGORIES.map((c) => [c.id, c.label])) as Record<
-  Category,
-  string
->
+export const CATEGORY_LABELS = Object.fromEntries(
+  CATEGORIES.map(c => [c.id, c.label]),
+) as Record<Category, string>
 
 // Written out per category so Tailwind's scanner can see each literal class
 // name — a template-built string like `bg-${hue}-100` would never be
@@ -37,9 +40,11 @@ const TILE_CLASSES: Record<Category, string> = {
   fish: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300',
   seafood: 'bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300',
   veggie: 'bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300',
-  pasta: 'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
+  pasta:
+    'bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300',
   rice: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300',
-  noodles: 'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
+  noodles:
+    'bg-violet-100 text-violet-700 dark:bg-violet-950 dark:text-violet-300',
   bread: 'bg-stone-200 text-stone-700 dark:bg-stone-800 dark:text-stone-300',
   potato: 'bg-lime-100 text-lime-700 dark:bg-lime-950 dark:text-lime-300',
 }

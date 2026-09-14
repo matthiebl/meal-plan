@@ -28,7 +28,11 @@ export function usePlannerRoute() {
 
   const isWeek = !pathname.startsWith('/month')
   const { anchor, saturday, days } = useMemo(() => {
-    const anchor = date ? fromISODate(date) : ym ? fromMonthParam(ym) : new Date()
+    const anchor = date
+      ? fromISODate(date)
+      : ym
+        ? fromMonthParam(ym)
+        : new Date()
     const saturday = weekStartSaturday(anchor)
     return { anchor, saturday, days: weekDays(saturday) }
   }, [date, ym])
@@ -43,12 +47,24 @@ export function usePlannerRoute() {
     days,
     showingToday: isWeek ? isCurrentWeek(saturday) : isCurrentMonth(anchor),
     goPrevious: () =>
-      navigate(isWeek ? `/week/${toISODate(previousWeek(saturday))}` : `/month/${toMonthParam(previousMonth(anchor))}`),
+      navigate(
+        isWeek
+          ? `/week/${toISODate(previousWeek(saturday))}`
+          : `/month/${toMonthParam(previousMonth(anchor))}`,
+      ),
     goNext: () =>
-      navigate(isWeek ? `/week/${toISODate(nextWeek(saturday))}` : `/month/${toMonthParam(nextMonth(anchor))}`),
+      navigate(
+        isWeek
+          ? `/week/${toISODate(nextWeek(saturday))}`
+          : `/month/${toMonthParam(nextMonth(anchor))}`,
+      ),
     goToday: () => {
       const now = new Date()
-      navigate(isWeek ? `/week/${toISODate(weekStartSaturday(now))}` : `/month/${toMonthParam(now)}`)
+      navigate(
+        isWeek
+          ? `/week/${toISODate(weekStartSaturday(now))}`
+          : `/month/${toMonthParam(now)}`,
+      )
     },
     showWeek: () => navigate(`/week/${toISODate(saturday)}`),
     showMonth: () => navigate(`/month/${toMonthParam(anchor)}`),

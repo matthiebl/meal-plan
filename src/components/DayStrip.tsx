@@ -17,15 +17,22 @@ type DayStripProps = {
  * never a list of day names to read down. Used wherever something is placed
  * on a day without dragging it there. See PLAN.md §6.
  */
-export default function DayStrip({ days, onPick, currentDate, suggestedDate, disabledThrough }: DayStripProps) {
+export default function DayStrip({
+  days,
+  onPick,
+  currentDate,
+  suggestedDate,
+  disabledThrough,
+}: DayStripProps) {
   const today = todayISODate()
 
   return (
     <div className="grid grid-cols-8 gap-1.5">
-      {days.map((day) => {
+      {days.map(day => {
         const iso = toISODate(day)
         const isCurrent = iso === currentDate
-        const isDisabled = disabledThrough !== undefined && iso <= disabledThrough
+        const isDisabled =
+          disabledThrough !== undefined && iso <= disabledThrough
         return (
           <button
             key={iso}
@@ -42,10 +49,14 @@ export default function DayStrip({ days, onPick, currentDate, suggestedDate, dis
                   : `bg-surface-1 hover:bg-line ${iso === today ? 'text-accent' : 'text-ink'}`
             } ${isDisabled ? 'opacity-40' : ''}`}
           >
-            <span className={`text-[11px] ${isCurrent || iso === suggestedDate ? 'opacity-75' : 'text-ink-3'}`}>
+            <span
+              className={`text-[11px] ${isCurrent || iso === suggestedDate ? 'opacity-75' : 'text-ink-3'}`}
+            >
               {format(day, 'EEEEE')}
             </span>
-            <span className={`text-[13px] tabular-nums ${iso === suggestedDate ? 'font-medium' : ''}`}>
+            <span
+              className={`text-[13px] tabular-nums ${iso === suggestedDate ? 'font-medium' : ''}`}
+            >
               {format(day, 'd')}
             </span>
           </button>

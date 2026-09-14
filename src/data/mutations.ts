@@ -19,7 +19,9 @@ import type { Cook, CookKind, MealCategory } from '../types'
  * screen. Failures are logged rather than thrown. See PLAN.md §6.
  */
 function fire(write: Promise<unknown>): void {
-  write.catch((error: unknown) => console.error('Firestore write failed', error))
+  write.catch((error: unknown) =>
+    console.error('Firestore write failed', error),
+  )
 }
 
 export type MealInput = {
@@ -30,7 +32,9 @@ export type MealInput = {
 
 /** Firestore rejects `undefined` field values, so an unset secondary is left out entirely. */
 function categoryData(category: MealCategory): MealCategory {
-  return category.secondary ? { main: category.main, secondary: category.secondary } : { main: category.main }
+  return category.secondary
+    ? { main: category.main, secondary: category.secondary }
+    : { main: category.main }
 }
 
 /** Creates a new meal, returning its id immediately. */
@@ -52,7 +56,10 @@ export function addMeal({ name, servings, category }: MealInput): string {
  * left behind, and so is `visual`, the retired colour/fill/emoji field that
  * meals created before categories still carry.
  */
-export function updateMeal(mealId: string, { name, servings, category }: MealInput): void {
+export function updateMeal(
+  mealId: string,
+  { name, servings, category }: MealInput,
+): void {
   fire(
     updateDoc(doc(db, 'meals', mealId), {
       name,
@@ -93,7 +100,13 @@ export type LeftoversInput = {
 /** Creates a leftovers cook at the end of its day, returning its id so it can be undone. */
 export function addLeftovers(input: LeftoversInput): string {
   const ref = doc(collection(db, 'cooks'))
-  fire(setDoc(ref, { ...input, kind: 'leftovers' as const, createdAt: serverTimestamp() }))
+  fire(
+    setDoc(ref, {
+      ...input,
+      kind: 'leftovers' as const,
+      createdAt: serverTimestamp(),
+    }),
+  )
   return ref.id
 }
 
@@ -102,7 +115,11 @@ export function addLeftovers(input: LeftoversInput): string {
  * that day's cooks in the same batch. Used for drops at a precise position;
  * `addCook`/`addLeftovers` cover the simple append case.
  */
-export function insertCook(input: Omit<CookInput, 'order'>, dayIds: string[], index: number): void {
+export function insertCook(
+  input: Omit<CookInput, 'order'>,
+  dayIds: string[],
+  index: number,
+): void {
   const batch = writeBatch(db)
   const newRef = doc(collection(db, 'cooks'))
   batch.set(newRef, { ...input, order: index, createdAt: serverTimestamp() })
@@ -115,7 +132,9 @@ export function insertCook(input: Omit<CookInput, 'order'>, dayIds: string[], in
 /** Rewrites one day's cooks with consecutive order values in a single batch. */
 export function reorderDay(orderedCookIds: string[]): void {
   const batch = writeBatch(db)
-  orderedCookIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
+  orderedCookIds.forEach((id, index) =>
+    batch.update(doc(db, 'cooks', id), { order: index }),
+  )
   fire(batch.commit())
 }
 
@@ -125,11 +144,21 @@ export function reorderDay(orderedCookIds: string[]): void {
  * must not overlap: they are two different days' cook ids, excluding and
  * including `cookId` respectively.
  */
-export function moveCook(cookId: string, date: string, originDayIds: string[], destDayIds: string[]): void {
+export function moveCook(
+  cookId: string,
+  date: string,
+  originDayIds: string[],
+  destDayIds: string[],
+): void {
   const batch = writeBatch(db)
-  originDayIds.forEach((id, index) => batch.update(doc(db, 'cooks', id), { order: index }))
+  originDayIds.forEach((id, index) =>
+    batch.update(doc(db, 'cooks', id), { order: index }),
+  )
   destDayIds.forEach((id, index) => {
-    batch.update(doc(db, 'cooks', id), id === cookId ? { order: index, date } : { order: index })
+    batch.update(
+      doc(db, 'cooks', id),
+      id === cookId ? { order: index, date } : { order: index },
+    )
   })
   fire(batch.commit())
 }

@@ -14,8 +14,10 @@ export function useMeals() {
 
     ensureSignedIn().then(() => {
       if (cancelled) return
-      unsubscribe = onSnapshot(collection(db, 'meals'), (snapshot) => {
-        setMeals(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Meal))
+      unsubscribe = onSnapshot(collection(db, 'meals'), snapshot => {
+        setMeals(
+          snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Meal),
+        )
         setLoading(false)
       })
     })

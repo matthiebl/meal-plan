@@ -22,7 +22,11 @@ type MealCardProps = {
 
 /** Times cooked, as a phrase. */
 function cookedLabel(timesCooked: number): string {
-  return timesCooked === 0 ? 'never cooked' : timesCooked === 1 ? 'cooked once' : `cooked ${timesCooked}×`
+  return timesCooked === 0
+    ? 'never cooked'
+    : timesCooked === 1
+      ? 'cooked once'
+      : `cooked ${timesCooked}×`
 }
 
 /**
@@ -33,7 +37,14 @@ function cookedLabel(timesCooked: number): string {
  * thing as a week strip to point at — the only path to planning from here on
  * a phone, where the two panes are never on screen together. See PLAN.md §6.
  */
-export default function MealCard({ meal, stats, weekDays, headlineTimesCooked, onPlan, onEdit }: MealCardProps) {
+export default function MealCard({
+  meal,
+  stats,
+  weekDays,
+  headlineTimesCooked,
+  onPlan,
+  onEdit,
+}: MealCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mealDragId(meal.id),
@@ -47,14 +58,16 @@ export default function MealCard({ meal, stats, weekDays, headlineTimesCooked, o
       panelClassName="w-[19rem]"
       sheetTitle={meal.name}
       sheetSubtitle={`${stats.lastEaten ? `Last eaten ${formatISODay(stats.lastEaten)}` : 'Never eaten'} · ${cookedLabel(stats.timesCooked)}`}
-      sheetLead={<MealTile category={meal.category} size="header" surface="surface-3" />}
+      sheetLead={
+        <MealTile category={meal.category} size="header" surface="surface-3" />
+      }
       trigger={
         <button
           ref={setNodeRef}
           {...listeners}
           {...attributes}
           type="button"
-          onClick={() => setMenuOpen((open) => !open)}
+          onClick={() => setMenuOpen(open => !open)}
           aria-expanded={menuOpen}
           title={`${meal.name} — tap to plan or edit, or drag onto a day`}
           // `touch-pan-y`, not `touch-none`: the card covers most of the list,
@@ -64,14 +77,18 @@ export default function MealCard({ meal, stats, weekDays, headlineTimesCooked, o
             stats.nextPlanned ? PLANNED_OUTLINE : ''
           } ${isDragging ? 'opacity-40' : ''}`}
         >
-          <MealSummary meal={meal} stats={stats} headlineTimesCooked={headlineTimesCooked} />
+          <MealSummary
+            meal={meal}
+            stats={stats}
+            headlineTimesCooked={headlineTimesCooked}
+          />
         </button>
       }
     >
       <p className="mb-2 ml-0.5 text-xs text-ink-3">Plan on</p>
       <DayStrip
         days={weekDays}
-        onPick={(iso) => {
+        onPick={iso => {
           onPlan(iso)
           setMenuOpen(false)
         }}

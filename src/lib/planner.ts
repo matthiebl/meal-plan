@@ -1,10 +1,12 @@
 import { differenceInCalendarDays, format } from 'date-fns'
-import { fromISODate } from './dates'
 import type { Cook } from '../types'
+import { fromISODate } from './dates'
 
 /** A day's cooks, sorted by their order. */
 export function cooksOnDate(cooks: Cook[], date: string): Cook[] {
-  return cooks.filter((cook) => cook.date === date).sort((a, b) => a.order - b.order)
+  return cooks
+    .filter(cook => cook.date === date)
+    .sort((a, b) => a.order - b.order)
 }
 
 /**
@@ -13,7 +15,10 @@ export function cooksOnDate(cooks: Cook[], date: string): Cook[] {
  * measured to the cook's own date, not to today, so it reads the same for a
  * plan as for a record. See PLAN.md §6.
  */
-export function cookDetails(cooks: Cook[], forCooks: Cook[]): Map<string, string> {
+export function cookDetails(
+  cooks: Cook[],
+  forCooks: Cook[],
+): Map<string, string> {
   const cookDatesByMeal = new Map<string, string[]>()
   for (const cook of cooks) {
     if (cook.kind !== 'cook') continue
@@ -21,7 +26,7 @@ export function cookDetails(cooks: Cook[], forCooks: Cook[]): Map<string, string
     if (dates) dates.push(cook.date)
     else cookDatesByMeal.set(cook.mealId, [cook.date])
   }
-  const cooksById = new Map(cooks.map((cook) => [cook.id, cook]))
+  const cooksById = new Map(cooks.map(cook => [cook.id, cook]))
 
   const details = new Map<string, string>()
   for (const cook of forCooks) {
@@ -31,19 +36,32 @@ export function cookDetails(cooks: Cook[], forCooks: Cook[]): Map<string, string
         details.set(cook.id, 'Leftovers')
         continue
       }
-      const gap = differenceInCalendarDays(fromISODate(cook.date), fromISODate(from.date))
-      details.set(cook.id, `Leftovers from ${format(fromISODate(from.date), gap >= 0 && gap < 7 ? 'EEE' : 'd MMM')}`)
+      const gap = differenceInCalendarDays(
+        fromISODate(cook.date),
+        fromISODate(from.date),
+      )
+      details.set(
+        cook.id,
+        `Leftovers from ${format(fromISODate(from.date), gap >= 0 && gap < 7 ? 'EEE' : 'd MMM')}`,
+      )
       continue
     }
     let previous: string | null = null
     for (const date of cookDatesByMeal.get(cook.mealId) ?? []) {
-      if (date < cook.date && (previous === null || date > previous)) previous = date
+      if (date < cook.date && (previous === null || date > previous))
+        previous = date
     }
     if (previous === null) {
       details.set(cook.id, 'first time cooked')
     } else {
-      const days = differenceInCalendarDays(fromISODate(cook.date), fromISODate(previous))
-      details.set(cook.id, `${days} ${days === 1 ? 'day' : 'days'} since last cooked`)
+      const days = differenceInCalendarDays(
+        fromISODate(cook.date),
+        fromISODate(previous),
+      )
+      details.set(
+        cook.id,
+        `${days} ${days === 1 ? 'day' : 'days'} since last cooked`,
+      )
     }
   }
   return details

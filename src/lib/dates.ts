@@ -106,7 +106,10 @@ export function nextISODate(iso: string): string {
  * A week as one readable label, e.g. '12 – 19 September' or '27 Sep – 4 Oct'.
  * The year is added only when the week ends outside the current year.
  */
-export function formatWeekRange(saturday: Date, monthFormat: 'MMM' | 'MMMM' = 'MMMM'): string {
+export function formatWeekRange(
+  saturday: Date,
+  monthFormat: 'MMM' | 'MMMM' = 'MMMM',
+): string {
   const end = addDays(saturday, 7)
   const sameMonth = isSameMonthFns(saturday, end)
   const year = end.getFullYear() === new Date().getFullYear() ? '' : ' yyyy'
@@ -115,7 +118,9 @@ export function formatWeekRange(saturday: Date, monthFormat: 'MMM' | 'MMMM' = 'M
 
 /** Where a week sits relative to now: 'This week', 'Next week', 'Last week', or its year. */
 export function formatWeekRelative(saturday: Date): string {
-  const offset = Math.round(differenceInCalendarDays(saturday, weekStartSaturday(new Date())) / 7)
+  const offset = Math.round(
+    differenceInCalendarDays(saturday, weekStartSaturday(new Date())) / 7,
+  )
   if (offset === 0) return 'This week'
   if (offset === 1) return 'Next week'
   if (offset === -1) return 'Last week'

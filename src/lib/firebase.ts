@@ -33,7 +33,7 @@ export function ensureSignedIn(): Promise<void> {
   authReady ??= new Promise((resolve, reject) => {
     const unsubscribe = onAuthStateChanged(
       auth,
-      (user) => {
+      user => {
         if (!user) {
           signInAnonymously(auth).catch(reject)
           return

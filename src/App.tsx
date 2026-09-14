@@ -59,13 +59,25 @@ type ShellProps = {
  * toolbar and so has to read the route. One DndContext wraps both panes,
  * since the meal-card-to-day gesture spans them. See PLAN.md §6.
  */
-function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDark }: ShellProps) {
+function Shell({
+  meals,
+  cooks,
+  mealsLoading,
+  tab,
+  onTabChange,
+  dark,
+  onToggleDark,
+}: ShellProps) {
   const [activeDrag, setActiveDrag] = useState<DragData | null>(null)
 
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 150, tolerance: 8 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 150, tolerance: 8 },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   function handleDragStart(event: DragStartEvent) {
@@ -81,18 +93,29 @@ function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDar
     const overData = over.data.current as DropData | undefined
     if (!activeData || !overData) return
 
-    const destDate = overData.type === 'day' ? overData.date : overData.cook.date
+    const destDate =
+      overData.type === 'day' ? overData.date : overData.cook.date
 
     if (activeData.type === 'meal' || activeData.type === 'leftovers') {
-      const destIds = cooksOnDate(cooks, destDate).map((c) => c.id)
-      const overIndex = overData.type === 'cook' ? destIds.indexOf(overData.cook.id) : -1
+      const destIds = cooksOnDate(cooks, destDate).map(c => c.id)
+      const overIndex =
+        overData.type === 'cook' ? destIds.indexOf(overData.cook.id) : -1
       const index = overIndex >= 0 ? overIndex : destIds.length
 
       if (activeData.type === 'meal') {
-        insertCook({ mealId: activeData.meal.id, date: destDate, kind: 'cook' }, destIds, index)
+        insertCook(
+          { mealId: activeData.meal.id, date: destDate, kind: 'cook' },
+          destIds,
+          index,
+        )
       } else {
         insertCook(
-          { mealId: activeData.cook.mealId, date: destDate, kind: 'leftovers', fromCookId: activeData.cook.id },
+          {
+            mealId: activeData.cook.mealId,
+            date: destDate,
+            kind: 'leftovers',
+            fromCookId: activeData.cook.id,
+          },
           destIds,
           index,
         )
@@ -105,20 +128,25 @@ function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDar
     if (overData.type === 'cook' && overData.cook.id === cook.id) return
 
     const destExisting = cooksOnDate(cooks, destDate)
-      .filter((c) => c.id !== cook.id)
-      .map((c) => c.id)
-    const overIndex = overData.type === 'cook' ? destExisting.indexOf(overData.cook.id) : -1
+      .filter(c => c.id !== cook.id)
+      .map(c => c.id)
+    const overIndex =
+      overData.type === 'cook' ? destExisting.indexOf(overData.cook.id) : -1
     const index = overIndex >= 0 ? overIndex : destExisting.length
-    const destIds = [...destExisting.slice(0, index), cook.id, ...destExisting.slice(index)]
+    const destIds = [
+      ...destExisting.slice(0, index),
+      cook.id,
+      ...destExisting.slice(index),
+    ]
 
     if (cook.date === destDate) {
-      const current = cooksOnDate(cooks, destDate).map((c) => c.id)
+      const current = cooksOnDate(cooks, destDate).map(c => c.id)
       if (destIds.join() === current.join()) return
       reorderDay(destIds)
     } else {
       const originIds = cooksOnDate(cooks, cook.date)
-        .filter((c) => c.id !== cook.id)
-        .map((c) => c.id)
+        .filter(c => c.id !== cook.id)
+        .map(c => c.id)
       moveCook(cook.id, destDate, originIds, destIds)
     }
   }
@@ -127,10 +155,14 @@ function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDar
     <div className="flex h-dvh flex-col bg-surface-2 text-ink">
       {/* No header on a phone: each pane titles itself, and the height a
           header would take is a day row's worth. */}
-      <header className="hidden h-14 flex-shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-line px-4 md:grid">
+      <header className="hidden h-14 shrink-0 grid-cols-[1fr_auto_1fr] items-center border-b border-line px-4 md:grid">
         <h1 className="text-[15px] font-medium">Meal plan</h1>
         <PlannerToolbar />
-        <ThemeToggle dark={dark} onToggle={onToggleDark} className="justify-self-end" />
+        <ThemeToggle
+          dark={dark}
+          onToggle={onToggleDark}
+          className="justify-self-end"
+        />
       </header>
 
       <DndContext
@@ -141,7 +173,7 @@ function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDar
       >
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <aside
-            className={`w-full min-w-0 overflow-hidden border-line md:block md:w-80 md:flex-shrink-0 md:border-r lg:w-88 ${
+            className={`w-full min-w-0 overflow-hidden border-line md:block md:w-80 md:shrink-0 md:border-r lg:w-88 ${
               tab === 'meals' ? 'block' : 'hidden'
             }`}
           >
@@ -152,19 +184,33 @@ function Shell({ meals, cooks, mealsLoading, tab, onTabChange, dark, onToggleDar
               headerAction={<ThemeToggle dark={dark} onToggle={onToggleDark} />}
             />
           </aside>
-          <section className={`min-w-0 flex-1 overflow-hidden md:block ${tab === 'plan' ? 'block' : 'hidden'}`}>
+          <section
+            className={`min-w-0 flex-1 overflow-hidden md:block ${tab === 'plan' ? 'block' : 'hidden'}`}
+          >
             <Planner meals={meals} cooks={cooks} />
           </section>
         </div>
-        <DragOverlay>{activeDrag && <DragOverlayChip data={activeDrag} />}</DragOverlay>
+        <DragOverlay>
+          {activeDrag && <DragOverlayChip data={activeDrag} />}
+        </DragOverlay>
       </DndContext>
 
       <nav
         aria-label="Panes"
-        className="flex flex-shrink-0 items-stretch border-t border-line pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="flex shrink-0 items-stretch border-t border-line pb-[env(safe-area-inset-bottom)] md:hidden"
       >
-        <TabButton active={tab === 'plan'} onClick={() => onTabChange('plan')} label="Plan" icon="calendar" />
-        <TabButton active={tab === 'meals'} onClick={() => onTabChange('meals')} label="Meals" icon="list" />
+        <TabButton
+          active={tab === 'plan'}
+          onClick={() => onTabChange('plan')}
+          label="Plan"
+          icon="calendar"
+        />
+        <TabButton
+          active={tab === 'meals'}
+          onClick={() => onTabChange('meals')}
+          label="Meals"
+          icon="list"
+        />
       </nav>
     </div>
   )
@@ -184,7 +230,7 @@ function App() {
       tab={tab}
       onTabChange={setTab}
       dark={dark}
-      onToggleDark={() => setDark((d) => !d)}
+      onToggleDark={() => setDark(d => !d)}
     />
   )
 
@@ -223,7 +269,15 @@ function TabButton({ active, onClick, label, icon }: TabButtonProps) {
   )
 }
 
-function ThemeToggle({ dark, onToggle, className = '' }: { dark: boolean; onToggle: () => void; className?: string }) {
+function ThemeToggle({
+  dark,
+  onToggle,
+  className = '',
+}: {
+  dark: boolean
+  onToggle: () => void
+  className?: string
+}) {
   const label = dark ? 'Switch to light mode' : 'Switch to dark mode'
   return (
     <button
@@ -231,7 +285,7 @@ function ThemeToggle({ dark, onToggle, className = '' }: { dark: boolean; onTogg
       onClick={onToggle}
       aria-label={label}
       title={label}
-      className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-1 hover:text-ink ${className}`}
+      className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-1 hover:text-ink ${className}`}
     >
       <Icon name={dark ? 'sun' : 'moon'} />
     </button>

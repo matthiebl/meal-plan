@@ -2,7 +2,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { format } from 'date-fns'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
-import { isToday, toISODate, todayISODate } from '../lib/dates'
+import { isToday, todayISODate, toISODate } from '../lib/dates'
 import { cookDragId, dayDropId } from '../lib/dnd'
 import { sortMeals } from '../lib/mealSort'
 import { useIsMobile } from '../lib/responsive'
@@ -80,7 +80,9 @@ export default function DayRow({
   // the library's default sort already answers it.
   const pickableMeals = useMemo(() => {
     const q = query.trim().toLowerCase()
-    const matching = q ? activeMeals.filter((meal) => meal.name.toLowerCase().includes(q)) : activeMeals
+    const matching = q
+      ? activeMeals.filter(meal => meal.name.toLowerCase().includes(q))
+      : activeMeals
     return sortMeals(matching, statsFor, 'daysSince')
   }, [activeMeals, query, statsFor])
 
@@ -100,12 +102,15 @@ export default function DayRow({
     closePicker()
   }
 
-  const togglePicker = () => setPickerOpen((open) => !open)
+  const togglePicker = () => setPickerOpen(open => !open)
   const fullDate = format(date, 'EEEE d MMMM')
   const dayLabel = format(date, showMonth ? 'EEE d MMM' : 'EEE d')
 
   const chips = (
-    <SortableContext items={cooks.map((cook) => cookDragId(cook.id))} strategy={rectSortingStrategy}>
+    <SortableContext
+      items={cooks.map(cook => cookDragId(cook.id))}
+      strategy={rectSortingStrategy}
+    >
       {cooks.map((cook, index) => {
         const meal = mealsById.get(cook.mealId)
         if (!meal) return null
@@ -120,9 +125,9 @@ export default function DayRow({
             canMoveRight={index < cooks.length - 1}
             weekDays={weekDays}
             onDelete={() => onDeleteCook(cook)}
-            onReorder={(direction) => onReorderCook(cook.id, direction)}
-            onMoveToDay={(toDate) => onMoveCookToDay(cook.id, toDate)}
-            onAddLeftovers={(toDate) => onAddLeftovers(cook, toDate)}
+            onReorder={direction => onReorderCook(cook.id, direction)}
+            onMoveToDay={toDate => onMoveCookToDay(cook.id, toDate)}
+            onAddLeftovers={toDate => onAddLeftovers(cook, toDate)}
             onQuickLeftovers={() => onQuickLeftovers(cook)}
           />
         )
@@ -151,8 +156,8 @@ export default function DayRow({
           placeholder="Search meals"
           aria-label="Search meals"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => {
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={e => {
             if (e.key !== 'Enter') return
             if (pickableMeals.length > 0) pickMeal(pickableMeals[0].id)
             else if (query.trim()) startCreating()
@@ -163,10 +168,12 @@ export default function DayRow({
       <div className="max-h-[55dvh] space-y-2 overflow-y-auto md:max-h-80 md:space-y-1.5">
         {pickableMeals.length === 0 && (
           <p className="px-1 py-2 text-center text-sm text-ink-3">
-            {activeMeals.length === 0 ? 'No meals in the library yet.' : 'No meals match.'}
+            {activeMeals.length === 0
+              ? 'No meals in the library yet.'
+              : 'No meals match.'}
           </p>
         )}
-        {pickableMeals.map((meal) => {
+        {pickableMeals.map(meal => {
           const stats = statsFor(meal)
           return (
             <button
@@ -185,14 +192,21 @@ export default function DayRow({
           className="flex w-full items-center gap-2.5 rounded-2xl border border-dashed border-line-strong p-3.5 text-left text-sm text-ink-3 hover:text-ink-2 md:rounded-xl md:p-2.5"
         >
           <Icon name="plus" className="h-4.5 w-4.5" />
-          <span className="truncate">{query.trim() ? `Create “${query.trim()}”` : 'New meal'}</span>
+          <span className="truncate">
+            {query.trim() ? `Create “${query.trim()}”` : 'New meal'}
+          </span>
         </button>
       </div>
     </Popover>
   )
 
   const dialog = creatingName !== null && (
-    <MealDialog meal={null} initialName={creatingName} onCreated={onAddCook} onClose={() => setCreatingName(null)} />
+    <MealDialog
+      meal={null}
+      initialName={creatingName}
+      onCreated={onAddCook}
+      onClose={() => setCreatingName(null)}
+    />
   )
 
   if (isMobile) {
@@ -210,7 +224,11 @@ export default function DayRow({
             onClick={togglePicker}
             aria-label={`Add a meal on ${fullDate}`}
             className={`min-w-0 truncate rounded text-left text-[13px] ${
-              today ? 'font-medium text-accent' : past ? 'text-ink-3/70' : 'text-ink-3'
+              today
+                ? 'font-medium text-accent'
+                : past
+                  ? 'text-ink-3/70'
+                  : 'text-ink-3'
             }`}
           >
             {today ? `Today · ${dayLabel}` : dayLabel}
@@ -261,7 +279,7 @@ export default function DayRow({
         today ? 'rounded-xl border-transparent bg-accent-soft' : 'border-line'
       } ${isOver ? 'ring-2 ring-accent ring-inset' : ''}`}
     >
-      <div className="w-16 flex-shrink-0">
+      <div className="w-16 shrink-0">
         {/* The date is itself the day's add button, so a day that already has
             cooks can be added to without aiming at the gap beside them. */}
         <button
@@ -270,7 +288,11 @@ export default function DayRow({
           onClick={togglePicker}
           aria-label={`Add a meal on ${fullDate}`}
           className={`rounded text-left text-xs tabular-nums ${
-            today ? 'font-medium text-accent' : past ? 'text-ink-3/70' : 'text-ink-3'
+            today
+              ? 'font-medium text-accent'
+              : past
+                ? 'text-ink-3/70'
+                : 'text-ink-3'
           }`}
         >
           {dayLabel}
@@ -299,7 +321,9 @@ export default function DayRow({
 
       {/* Reserved on every row, so a day carrying a shop marker is no
           narrower than its neighbours. */}
-      <div className="flex w-14 flex-shrink-0 justify-end">{shopDay && <ShopMarker shopDay={shopDay} />}</div>
+      <div className="flex w-14 shrink-0 justify-end">
+        {shopDay && <ShopMarker shopDay={shopDay} />}
+      </div>
 
       {dialog}
     </div>

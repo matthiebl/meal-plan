@@ -14,8 +14,10 @@ export function useCooks() {
 
     ensureSignedIn().then(() => {
       if (cancelled) return
-      unsubscribe = onSnapshot(collection(db, 'cooks'), (snapshot) => {
-        setCooks(snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }) as Cook))
+      unsubscribe = onSnapshot(collection(db, 'cooks'), snapshot => {
+        setCooks(
+          snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }) as Cook),
+        )
         setLoading(false)
       })
     })

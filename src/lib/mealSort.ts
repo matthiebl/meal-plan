@@ -11,13 +11,19 @@ export const EMPTY_STATS: MealStats = {
 }
 
 /** Sorts meals for the library and the day picker. See PLAN.md §6. */
-export function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: SortKey): Meal[] {
+export function sortMeals(
+  meals: Meal[],
+  statsFor: (meal: Meal) => MealStats,
+  sortKey: SortKey,
+): Meal[] {
   const sorted = [...meals]
   switch (sortKey) {
     case 'name':
       return sorted.sort((a, b) => a.name.localeCompare(b.name))
     case 'timesCooked':
-      return sorted.sort((a, b) => statsFor(b).timesCooked - statsFor(a).timesCooked)
+      return sorted.sort(
+        (a, b) => statsFor(b).timesCooked - statsFor(a).timesCooked,
+      )
     case 'daysSince':
       // Never-eaten sorts first, alongside the longest-overdue meals.
       return sorted.sort((a, b) => {

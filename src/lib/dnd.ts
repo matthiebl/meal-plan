@@ -1,4 +1,8 @@
-import { closestCenter, pointerWithin, type CollisionDetection } from '@dnd-kit/core'
+import {
+  closestCenter,
+  pointerWithin,
+  type CollisionDetection,
+} from '@dnd-kit/core'
 import type { Cook, Meal } from '../types'
 
 // dnd-kit ids are shared across one DndContext spanning both panes, so every
@@ -13,7 +17,9 @@ export type DragData =
   | { type: 'cook'; cook: Cook; meal: Meal }
   | { type: 'leftovers'; cook: Cook; meal: Meal }
 
-export type DropData = { type: 'day'; date: string } | { type: 'cook'; cook: Cook }
+export type DropData =
+  | { type: 'day'; date: string }
+  | { type: 'cook'; cook: Cook }
 
 /**
  * `closestCenter` compares distance to each droppable's *rect center*,
@@ -25,14 +31,16 @@ export type DropData = { type: 'day'; date: string } | { type: 'cook'; cook: Coo
  * closestCenter only for the rare frame where the pointer has momentarily
  * left every droppable (e.g. a fast drag between rows).
  */
-export const collisionDetection: CollisionDetection = (args) => {
+export const collisionDetection: CollisionDetection = args => {
   const pointerHits = pointerWithin(args)
   if (pointerHits.length === 0) return closestCenter(args)
 
   // The day container's rect always encloses its chips, so both can be hit
   // at once; prefer the chip so drops land at a precise index.
-  const chipHit = pointerHits.find((hit) => {
-    const data = hit.data?.droppableContainer.data.current as DropData | undefined
+  const chipHit = pointerHits.find(hit => {
+    const data = hit.data?.droppableContainer.data.current as
+      | DropData
+      | undefined
     return data?.type === 'cook'
   })
   return chipHit ? [chipHit] : pointerHits

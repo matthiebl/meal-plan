@@ -24,8 +24,10 @@ export function useWeekMeta(saturdayISO: string): string {
 
     ensureSignedIn().then(() => {
       if (cancelled) return
-      unsubscribe = onSnapshot(doc(db, 'weeks', saturdayISO), (snapshot) => {
-        setShopDate((snapshot.data()?.shopDate as string | undefined) ?? saturdayISO)
+      unsubscribe = onSnapshot(doc(db, 'weeks', saturdayISO), snapshot => {
+        setShopDate(
+          (snapshot.data()?.shopDate as string | undefined) ?? saturdayISO,
+        )
       })
     })
 
