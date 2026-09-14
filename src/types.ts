@@ -1,26 +1,26 @@
 import type { Timestamp } from 'firebase/firestore'
 
-/** The ten closed colour tokens. See PLAN.md §5. */
-export type ColorToken =
-  | 'slate'
-  | 'rose'
-  | 'red'
-  | 'amber'
-  | 'lime'
-  | 'emerald'
-  | 'teal'
-  | 'sky'
-  | 'indigo'
-  | 'violet'
+/** The closed set of meal categories: what a meal is built on. See PLAN.md §5. */
+export type Category =
+  | 'beef'
+  | 'lamb'
+  | 'pork'
+  | 'chicken'
+  | 'egg'
+  | 'fish'
+  | 'seafood'
+  | 'veggie'
+  | 'pasta'
+  | 'rice'
+  | 'noodles'
+  | 'bread'
+  | 'potato'
 
-/** The three closed fill treatments. See PLAN.md §5. */
-export type Fill = 'solid' | 'soft' | 'outline'
-
-export type MealVisual = {
-  color: ColorToken
-  fill: Fill
-  /** A single emoji, optional. */
-  icon?: string
+export type MealCategory = {
+  /** What the meal is mostly — its tile's colour and icon. */
+  main: Category
+  /** What it is served with, if anything worth naming. Never equal to `main`. */
+  secondary?: Category
 }
 
 /** meals/{mealId} */
@@ -29,7 +29,8 @@ export type Meal = {
   name: string
   /** Estimated servings per cook. */
   servings: number
-  visual: MealVisual
+  /** Absent until a category is picked; the meal renders as uncategorised. */
+  category?: MealCategory
   /** Soft delete; history continues to render. */
   archived?: boolean
   createdAt: Timestamp

@@ -4,10 +4,12 @@ import { toISODate, todayISODate } from '../lib/dates'
 type DayStripProps = {
   days: Date[]
   onPick: (iso: string) => void
-  /** The day the thing already sits on: shown as current, and not pickable. */
+  /** The day the thing already sits on: filled, and not pickable. */
   currentDate?: string
-  /** Days that already carry this meal, marked with a dot. */
-  markedDates?: Set<string>
+  /** The likeliest pick, tinted so it is found first. */
+  suggestedDate?: string
+  /** Days on or before this one are not pickable. */
+  disabledThrough?: string
 }
 
 /**
@@ -15,36 +17,37 @@ type DayStripProps = {
  * never a list of day names to read down. Used wherever something is placed
  * on a day without dragging it there. See PLAN.md §6.
  */
-export default function DayStrip({ days, onPick, currentDate, markedDates }: DayStripProps) {
+export default function DayStrip({ days, onPick, currentDate, suggestedDate, disabledThrough }: DayStripProps) {
   const today = todayISODate()
 
   return (
-    <div className="grid grid-cols-8 gap-1">
+    <div className="grid grid-cols-8 gap-1.5">
       {days.map((day) => {
         const iso = toISODate(day)
         const isCurrent = iso === currentDate
+        const isDisabled = disabledThrough !== undefined && iso <= disabledThrough
         return (
           <button
             key={iso}
             type="button"
-            disabled={isCurrent}
+            disabled={isCurrent || isDisabled}
             aria-current={isCurrent || undefined}
             aria-label={format(day, 'EEEE d MMMM')}
             onClick={() => onPick(iso)}
-            className={`flex flex-col items-center gap-0.5 rounded-lg py-2 transition-colors ${
+            className={`flex flex-col items-center rounded-[11px] py-1.5 transition-colors ${
               isCurrent
-                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                : iso === today
-                  ? 'bg-gray-100 text-gray-900 dark:bg-gray-800 dark:text-white'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-            }`}
+                ? 'bg-primary text-on-primary'
+                : iso === suggestedDate
+                  ? 'bg-accent-soft text-accent'
+                  : `bg-surface-1 hover:bg-line ${iso === today ? 'text-accent' : 'text-ink'}`
+            } ${isDisabled ? 'opacity-40' : ''}`}
           >
-            <span className="text-[10px] uppercase opacity-70">{format(day, 'EEEEEE')}</span>
-            <span className="text-sm font-semibold tabular-nums">{format(day, 'd')}</span>
-            <span
-              aria-hidden
-              className={`h-1 w-1 rounded-full ${markedDates?.has(iso) ? 'bg-current' : 'bg-transparent'}`}
-            />
+            <span className={`text-[11px] ${isCurrent || iso === suggestedDate ? 'opacity-75' : 'text-ink-3'}`}>
+              {format(day, 'EEEEE')}
+            </span>
+            <span className={`text-[13px] tabular-nums ${iso === suggestedDate ? 'font-medium' : ''}`}>
+              {format(day, 'd')}
+            </span>
           </button>
         )
       })}

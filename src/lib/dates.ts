@@ -102,16 +102,31 @@ export function nextISODate(iso: string): string {
   return toISODate(addDays(fromISODate(iso), 1))
 }
 
-/** A week as one readable label, e.g. '12 – 19 Sep 2026' or '27 Sep – 4 Oct 2026'. */
-export function formatWeekRange(saturday: Date): string {
+/**
+ * A week as one readable label, e.g. '12 – 19 September' or '27 Sep – 4 Oct'.
+ * The year is added only when the week ends outside the current year.
+ */
+export function formatWeekRange(saturday: Date, monthFormat: 'MMM' | 'MMMM' = 'MMMM'): string {
   const end = addDays(saturday, 7)
-  return `${format(saturday, isSameMonthFns(saturday, end) ? 'd' : 'd MMM')} – ${format(end, 'd MMM yyyy')}`
+  const sameMonth = isSameMonthFns(saturday, end)
+  const year = end.getFullYear() === new Date().getFullYear() ? '' : ' yyyy'
+  return `${format(saturday, sameMonth ? 'd' : 'd MMM')} – ${format(end, `d ${sameMonth ? monthFormat : 'MMM'}${year}`)}`
 }
 
-/** A week without its year, for a narrow toolbar, e.g. '12 – 19 Sep'. */
-export function formatWeekRangeShort(saturday: Date): string {
-  const end = addDays(saturday, 7)
-  return `${format(saturday, isSameMonthFns(saturday, end) ? 'd' : 'd MMM')} – ${format(end, 'd MMM')}`
+/** Where a week sits relative to now: 'This week', 'Next week', 'Last week', or its year. */
+export function formatWeekRelative(saturday: Date): string {
+  const offset = Math.round(differenceInCalendarDays(saturday, weekStartSaturday(new Date())) / 7)
+  if (offset === 0) return 'This week'
+  if (offset === 1) return 'Next week'
+  if (offset === -1) return 'Last week'
+  return format(saturday, 'yyyy')
+}
+
+/** A day as briefly as it can be named: its weekday within the coming week, else e.g. '4 Oct'. */
+export function formatNearDay(iso: string): string {
+  const date = fromISODate(iso)
+  const ahead = differenceInCalendarDays(date, new Date())
+  return format(date, ahead >= 0 && ahead < 7 ? 'EEE' : 'd MMM')
 }
 
 /** A 'YYYY-MM-DD' string as a readable day, e.g. 'Fri 12 Sep'. */

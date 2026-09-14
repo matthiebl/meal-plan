@@ -3,36 +3,45 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /*
- * The ten closed meal-colour tokens (PLAN.md §5). Each is a light/dark pair:
- * the value swaps under `.dark` so a single class (e.g. `bg-meal-rose`)
- * holds contrast in both themes without a `dark:` variant at the call site.
- * Fill treatments (solid/soft/outline) are built from these base values in
- * `lib/visuals.ts`, not baked in here.
+ * The interface palette (PLAN.md §5). Each token is a light/dark pair: the
+ * value swaps under `.dark`, so a single class (e.g. `bg-surface-1`) holds in
+ * both themes without a `dark:` variant at the call site.
+ *
+ * surface-2 is the ground of both panes; surface-1 is what sits on it (cards,
+ * fields, chips); surface-3 is a raised panel or sheet. ink, ink-2 and ink-3
+ * are primary, secondary and muted text. Category colours are not here — they
+ * are written out per category in `lib/categories.ts`.
  */
 @theme {
-  --color-meal-slate: #64748b;
-  --color-meal-rose: #f43f5e;
-  --color-meal-red: #ef4444;
-  --color-meal-amber: #f59e0b;
-  --color-meal-lime: #84cc16;
-  --color-meal-emerald: #10b981;
-  --color-meal-teal: #14b8a6;
-  --color-meal-sky: #0ea5e9;
-  --color-meal-indigo: #6366f1;
-  --color-meal-violet: #8b5cf6;
+  --color-surface-1: #f2f2ef;
+  --color-surface-2: #ffffff;
+  --color-surface-3: #ffffff;
+  --color-ink: #1d1d1b;
+  --color-ink-2: #5b5b57;
+  --color-ink-3: #8c8c86;
+  --color-line: rgb(0 0 0 / 0.08);
+  --color-line-strong: rgb(0 0 0 / 0.2);
+  --color-accent: #2563eb;
+  --color-accent-soft: #e9effd;
+  --color-primary: #1d1d1b;
+  --color-on-primary: #ffffff;
+  --color-danger: #dc2626;
 }
 
 .dark {
-  --color-meal-slate: #94a3b8;
-  --color-meal-rose: #fb7185;
-  --color-meal-red: #f87171;
-  --color-meal-amber: #fbbf24;
-  --color-meal-lime: #a3e635;
-  --color-meal-emerald: #34d399;
-  --color-meal-teal: #2dd4bf;
-  --color-meal-sky: #38bdf8;
-  --color-meal-indigo: #818cf8;
-  --color-meal-violet: #a78bfa;
+  --color-surface-1: #31312e;
+  --color-surface-2: #1c1c1a;
+  --color-surface-3: #262624;
+  --color-ink: #f0f0ec;
+  --color-ink-2: #b3b3ac;
+  --color-ink-3: #85857e;
+  --color-line: rgb(255 255 255 / 0.09);
+  --color-line-strong: rgb(255 255 255 / 0.22);
+  --color-accent: #7ba7ff;
+  --color-accent-soft: #212c44;
+  --color-primary: #f0f0ec;
+  --color-on-primary: #1c1c1a;
+  --color-danger: #f87171;
 }
 
 /*
@@ -42,7 +51,7 @@
  */
 @layer base {
   :where(a, button, input, select, textarea, [tabindex]):focus-visible {
-    outline: 2px solid var(--color-sky-500);
+    outline: 2px solid var(--color-accent);
     outline-offset: 2px;
   }
 
@@ -62,11 +71,8 @@
 
   body {
     -webkit-font-smoothing: antialiased;
-    background-color: var(--color-gray-50);
-  }
-
-  html.dark body {
-    background-color: var(--color-gray-950);
+    background-color: var(--color-surface-2);
+    color: var(--color-ink);
   }
 
   /* Suppress the tap-highlight flash and the 300ms delay on touch. */

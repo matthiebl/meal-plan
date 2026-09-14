@@ -1,6 +1,15 @@
-import { collection, deleteDoc, doc, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore'
+import {
+  collection,
+  deleteDoc,
+  deleteField,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  writeBatch,
+} from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Cook, CookKind, MealVisual } from '../types'
+import type { Cook, CookKind, MealCategory } from '../types'
 
 /**
  * Firestore applies a local write to `onSnapshot` immediately, so nothing in
@@ -16,19 +25,42 @@ function fire(write: Promise<unknown>): void {
 export type MealInput = {
   name: string
   servings: number
-  visual: MealVisual
+  category: MealCategory | undefined
+}
+
+/** Firestore rejects `undefined` field values, so an unset secondary is left out entirely. */
+function categoryData(category: MealCategory): MealCategory {
+  return category.secondary ? { main: category.main, secondary: category.secondary } : { main: category.main }
 }
 
 /** Creates a new meal, returning its id immediately. */
-export function addMeal(input: MealInput): string {
+export function addMeal({ name, servings, category }: MealInput): string {
   const ref = doc(collection(db, 'meals'))
-  fire(setDoc(ref, { ...input, createdAt: serverTimestamp() }))
+  fire(
+    setDoc(ref, {
+      name,
+      servings,
+      ...(category ? { category: categoryData(category) } : {}),
+      createdAt: serverTimestamp(),
+    }),
+  )
   return ref.id
 }
 
-/** Updates a meal's editable fields. */
-export function updateMeal(mealId: string, edits: Partial<MealInput>): void {
-  fire(updateDoc(doc(db, 'meals', mealId), edits))
+/**
+ * Saves a meal's editable fields. A cleared category is deleted rather than
+ * left behind, and so is `visual`, the retired colour/fill/emoji field that
+ * meals created before categories still carry.
+ */
+export function updateMeal(mealId: string, { name, servings, category }: MealInput): void {
+  fire(
+    updateDoc(doc(db, 'meals', mealId), {
+      name,
+      servings,
+      category: category ? categoryData(category) : deleteField(),
+      visual: deleteField(),
+    }),
+  )
 }
 
 /** Soft-deletes a meal. It is hidden from the meal list but still renders in the planner. */

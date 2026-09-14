@@ -14,28 +14,30 @@ service cloud.firestore {
       return value is string && value.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
     }
 
-    function isColorToken(value) {
-      return value in
-        ['slate', 'rose', 'red', 'amber', 'lime', 'emerald', 'teal', 'sky', 'indigo', 'violet'];
+    function isCategory(value) {
+      return value in [
+        'beef', 'lamb', 'pork', 'chicken', 'egg', 'fish', 'seafood', 'veggie',
+        'pasta', 'rice', 'noodles', 'bread', 'potato'
+      ];
     }
 
-    function isValidVisual(visual) {
-      return visual is map
-        && isColorToken(visual.color)
-        && visual.fill in ['solid', 'soft', 'outline']
-        && (!('icon' in visual) || visual.icon is string);
+    function isValidCategory(category) {
+      return category is map
+        && isCategory(category.main)
+        && (!('secondary' in category)
+          || (isCategory(category.secondary) && category.secondary != category.main));
     }
 
     // meals/{mealId}
     match /meals/{mealId} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['name', 'servings', 'visual', 'createdAt'])
+        && request.resource.data.keys().hasAll(['name', 'servings', 'createdAt'])
         && request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.servings is number
         && request.resource.data.servings > 0
-        && isValidVisual(request.resource.data.visual)
+        && (!('category' in request.resource.data) || isValidCategory(request.resource.data.category))
         && (!('archived' in request.resource.data) || request.resource.data.archived is bool)
         && request.resource.data.createdAt is timestamp;
       // Meals are never hard-deleted; they are archived instead.

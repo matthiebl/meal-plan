@@ -46,10 +46,9 @@ lexicographically.
 type Meal = {
   name: string
   servings: number          // estimated servings per cook
-  visual: {
-    color: ColorToken       // one of the 10 tokens in §5
-    fill: 'solid' | 'soft' | 'outline'
-    icon?: string           // single emoji, optional
+  category?: {              // absent until picked; see §5
+    main: Category          // one of the 13 categories in §5
+    secondary?: Category    // never equal to main
   }
   archived?: boolean        // soft delete; history continues to render
   createdAt: Timestamp
@@ -86,6 +85,10 @@ Requirements on this model:
   statistics in §4 are computed on the frontend from the cook list.
 - Meals are never hard-deleted while cooks reference them; they are archived. Archived
   meals are hidden from the meal list but still render in the planner.
+- **`category` is optional.** A meal without one renders as uncategorised (§5), so a meal
+  without one needs no migration. Saving a meal deletes a cleared
+  `category` rather than writing an empty one, and deletes any `visual`, a retired field
+  that older meal documents carry.
 
 ### Reads
 
@@ -108,32 +111,73 @@ A single hook groups cooks by `mealId` and computes, per meal:
 `nextPlanned` is displayed on the meal card so a meal already scheduled later in the week
 is not planned twice.
 
+Each cook in the displayed week also carries a detail line, derived the same way
+(`cookDetails` in `lib/planner.ts`):
+
+| Cook | Detail |
+|---|---|
+| `cook` | calendar days from the same meal's previous `kind: 'cook'` date to **this cook's date** (`24 days since last cooked`), or `first time cooked` |
+| `leftovers` | `Leftovers from` the parent cook's weekday (or date, when more than six days earlier); `Leftovers` if the parent is gone |
+
+The gap is measured to the cook's own date, not to today, so it reads the same for a plan
+as for a record.
+
 ## 5. Visual system
 
-Each meal carries its own visual style, and that style renders identically everywhere the
-meal's id appears — meal card, week chip, month chip.
+### Interface palette
 
-All three visual dimensions are closed sets. There is no free colour picker, because
-arbitrary colours break palette coherence and dark-mode contrast.
+The interface draws from a closed set of tokens defined in `src/index.css` under
+`@theme`, each a light/dark pair that swaps under `.dark`, so one class holds in both
+themes:
 
-1. **Colour** — exactly ten tokens: `slate`, `rose`, `red`, `amber`, `lime`, `emerald`,
-   `teal`, `sky`, `indigo`, `violet`. Each is defined in `src/index.css` under `@theme` as
-   a light/dark pair so contrast holds in both themes.
-2. **Fill** — exactly three treatments:
-   - `solid` — saturated background, with whichever of near-black or white text contrasts
-     against that token in that theme. The ten tokens span a wide lightness range and all
-     lighten under `.dark`, so one fixed text colour is unreadable on several of them.
-   - `soft` — ~10% tinted background, coloured text
-   - `outline` — transparent background, coloured border
-3. **Icon** — an optional single emoji rendered before the name, chosen from a fixed
-   grid of food emoji. It is picked, never typed: reaching an emoji keyboard to fill in a
-   one-character field is the worst interaction a phone can be asked for.
+| Token | Role |
+|---|---|
+| `surface-2` | the ground of both panes |
+| `surface-1` | what sits on the ground: cards, chips, fields, pills |
+| `surface-3` | raised panels and bottom sheets |
+| `ink`, `ink-2`, `ink-3` | primary, secondary, and muted text |
+| `line`, `line-strong` | hairlines; dashed and outlined edges |
+| `accent`, `accent-soft` | today, the active sort, planned meals, suggested days |
+| `primary`, `on-primary` | the one filled button in a group, the current day in a strip, toasts |
+| `danger` | Remove and Archive |
 
-**Leftovers styling is derived, never chosen.** A `leftovers` cook renders with its meal's
-colour plus: a dashed left edge, a `↩` prefix, and reduced opacity. This treatment is
-fixed so leftovers are recognisable by construction. The prefix carries a
-text-presentation selector (`U+FE0E`); bare `↩` is drawn on most systems as a blue
-emoji tile that reads as an unrelated icon.
+Interface icons are inline SVG stroke paths in `components/Icon.tsx`. There is no icon
+font and no emoji anywhere in the interface.
+
+### Meal categories
+
+A meal is styled by what it is built on, not by a colour chosen for it. Its category is
+picked from a closed set of thirteen, each with a fixed colour hue and a custom SVG icon:
+
+| Group | Categories |
+|---|---|
+| Protein | `beef` red · `lamb` fuchsia · `pork` pink · `chicken` amber · `egg` yellow · `fish` sky · `seafood` teal · `veggie` green |
+| Carb | `pasta` orange · `rice` slate · `noodles` violet · `bread` stone · `potato` lime |
+
+A meal has a **main** category and optionally a **secondary** one, both from the same
+set: steak is `beef`; chicken carbonara is `chicken` with `pasta`; dahl is `veggie` with
+`rice`. There is no free colour picker and no free icon choice — arbitrary colours break
+palette coherence and dark-mode contrast, and a category says more than a colour does.
+
+Every appearance of a meal derives from its category, identically wherever the meal's id
+appears:
+
+- **Tile** — the meal's image. The main category's icon on that category's tint. Where
+  the tile is large enough (meal card, sheet header, editor preview), the secondary
+  category is a small round badge in its bottom-right corner, ringed in the colour of the
+  surface beneath so it reads as cut out of the tile. Tints are opaque in both themes so
+  the badge never blends into the tile.
+- **Chips** — the category names as small tinted pills beside the servings line. The
+  icons alone do not tell lamb from pork reliably; the names do.
+- **Marks** — the main category's colour at full strength, for marks too small to carry a
+  tint: the month view's bars and dots.
+
+An uncategorised meal has a neutral tile with a plate icon, no chips, and a grey mark.
+
+**Leftovers styling is derived, never chosen.** A `leftovers` cook renders outlined rather
+than filled, with its tile dimmed and its name in secondary text. The return-arrow marks
+it: before the name on a compact chip, and in place of the secondary badge on a tile large
+enough to carry one. This treatment is fixed so leftovers are recognisable by construction.
 
 ## 6. Layout and interaction
 
@@ -142,48 +186,54 @@ never scrolls** — each pane scrolls within its own space. A page that scrolls 
 its panes ends at a band of bare body below the app, because a phone's `100vh` is taller
 than its visible viewport.
 
-From `md` up, both panes sit side by side beneath a header carrying the app title and the
-dark-mode toggle.
+From `md` up, both panes sit side by side beneath one header: the app title on the left,
+the planner's toolbar (below) in the centre, and the dark-mode toggle on the right.
 
 Below `md`, **one pane is on screen at a time, chosen by a two-tab bottom bar** — Plan and
-Meals — which also carries the dark-mode toggle. Stacking both panes leaves each too short
-to work in; separating them gives whichever is in use the whole screen. There is no title
-bar at this width: the bar already names the pane, and the height a title would cost is a
-day row. Padding, control sizes, and labels condense throughout, so the planner shows a
-whole week without scrolling.
+Meals. Stacking both panes leaves each too short to work in; separating them gives
+whichever is in use the whole screen. There is no app header at this width; each pane
+carries a title of its own instead.
 
 Because the two panes are never on screen together on a phone, **every gesture that spans
 them has an equivalent that does not** — see the meal card's plan menu below.
 
 **Nothing is typed where it can be tapped.** Text entry is reserved for the two things
 that are genuinely free text: a meal's name, and the search boxes. Servings, sort order,
-colour, fill, icon, and every choice of day are tapped from a fixed set.
+category, and every choice of day are tapped from a fixed set.
 
 ### Left pane — meal library
 
-A single large scrolling list of every non-archived meal. Each meal card shows:
+A single large scrolling list of every non-archived meal. Each meal card shows its tile, its
+name, its category chips and servings, and a **headline figure** at its right, set apart
+from the rest because it is what the list is sorted by:
 
-- name (with icon, if set)
-- estimated servings
-- last eaten date and days since (or a `never` badge)
-- times cooked
-- next planned date, if any
+- sorted by days since or name: days since last eaten (`Today`, or `New` if never eaten) —
+  unless the meal is already planned, when it shows `Planned` and the planned day
+  instead, and the card carries an accent outline. A meal already scheduled is then not
+  planned twice.
+- sorted by times cooked: times cooked.
 
-Days since is the card's headline figure, set apart from the rest of the line, because
-it is what the default sort orders by.
+Below `md` the pane is titled "Meals" with the library's size beneath, and the dark-mode
+toggle beside it.
 
-Controls: a name search, and a sort menu over **days since (descending, default)**, name,
-servings, and times cooked. The default sort is the answer to "what has not been cooked in
-a while"; no separate view exists for that.
+Controls: a name search with a New meal button beside it, and sort pills for **days since
+(descending, default)**, name, and times cooked; the active pill is tinted and carries a
+down arrow. The default sort is the answer to "what has not been cooked in a while"; no
+separate view exists for that.
 
 **Clicking a meal card opens its menu**: the displayed week's eight days as a strip, which
-plans the meal on the day picked, and an entry to edit the meal. The strip is the click
-equivalent of dragging the card onto a day, and on a phone it is the only path from the
-library to the planner.
+plans the meal on the day picked, and an entry to edit the meal. As a sheet, its header
+shows when the meal was last eaten and how many times it has been cooked. The strip is the
+click equivalent of dragging the card onto a day, and on a phone it is the only path from
+the library to the planner.
 
-Meals are created and edited in a dialog covering name, servings, and the three visual
-dimensions from §5. Servings is a stepper, not a number field. Below `md` the dialog is a
-bottom sheet whose save row stays pinned above the fold.
+Meals are created and edited in a dialog: a live preview of the card, then name, servings,
+and category (§5). Its header row carries Cancel, the title, and Save, so Save is on
+screen however far the form scrolls; Archive is the last row of an existing meal's form.
+Servings is a stepper, not a number field. The main category is a grid of labelled icon
+tiles, grouped protein then carb, and tapping the chosen tile again clears it; the
+secondary category is a row of chips beginning with "Nothing", offered only once a main is
+picked, and never offering the main itself. Below `md` the dialog is a bottom sheet.
 
 **A search that matches nothing offers to create that meal, with the name prefilled.**
 Coming up empty is the moment the meal is most likely missing from the library, so it is
@@ -192,36 +242,60 @@ button.
 
 ### Right pane — planner
 
-Two views. One toolbar at the top of the pane carries everything that moves the planner
-— previous, next, **today**, and the week/month switch — and serves both views, so
-neither spends vertical space on navigation of its own.
+Two views. One set of controls carries everything that moves the planner — previous,
+next, **today**, and the week/month switch — and serves both views, so neither spends
+vertical space on navigation of its own. From `md` up they are the centre of the app
+header, around the displayed week's dates or the month's name. Below `md` they head the
+pane, with previous, next, and the switch to the right of a title and subtitle. A week
+within one of now is titled by where it sits (`This week`, `Next week`, `Last week`) with
+its dates beneath; any other week is titled by its dates with the year beneath; a month
+is titled by its name with the year beneath. Today is offered at the end of the subtitle,
+and only once the planner has moved away from the current week or month.
 
 **Week view** (the primary view):
 
-- Saturday through to the following Saturday inclusive — eight day rows.
-- Each day is a horizontal band; its cooks sit side by side and the band grows as cooks
-  are added. There is no limit on cooks per day.
-- The eight rows share the pane's height, growing past an equal share only when a day
-  fills up. They do not bunch at the top of a tall window.
-- The width a day's cooks have not filled is that day's add button, so spare room reads
-  as somewhere to drop a meal rather than as emptiness. **The day's date is that same
-  button**, so a day that already has cooks can be added to without aiming at the gap
-  beside them.
-- Below `md` a day stacks: its date on one line, its cooks beneath. A meal name then gets
-  the row's full width instead of what is left beside a date column.
-- Both Saturdays carry a shop-day marker. The marker can be moved to the Sunday of that
-  week, persisted as `weeks/{saturdayISO}.shopDate`. Its slot is reserved on every row,
-  so a day carrying one is no taller than its neighbours.
-- Today's row is highlighted and its date circled.
+- Saturday through to the following Saturday inclusive — eight days. There is no limit on
+  cooks per day.
+- **From `md` up, each day is a horizontal band**: its date, its cooks side by side as
+  compact chips (the meal's tile and name, on `surface-1`), and a shop-marker slot at the
+  right. The band grows as cooks are added.
+  - The eight rows share the pane's height, growing past an equal share only when a day
+    fills up. They do not bunch at the top of a tall window, and each row's contents sit
+    vertically centred in its band.
+  - The width a day's cooks have not filled is that day's add button, so spare room reads
+    as somewhere to drop a meal rather than as emptiness. On an empty day it is a dashed
+    outline, "Drop a meal here"; beside cooks it is invisible until hovered.
+  - Today's row is tinted `accent-soft` with its date in accent, and its chips take
+    `surface-2` so they stand off the tint.
+- **Below `md`, the week is a scrolling list of days**, each a heading over its cooks as
+  full-width cards. A phone's width goes to the meal rather than to a date column, and a
+  card has room to say something about the meal.
+  - A cook card is the meal's tile (with its secondary badge), its name, and a second
+    line: `Serves n ·` and the cook's detail from §4. A leftovers card's second line is its
+    detail alone.
+  - The day heading is the date — `Today · Mon 14` in accent for today — with the shop
+    marker and, once the day has cooks, a `+` at its right. An empty day is a large dashed
+    "Add a meal" card.
+  - When the displayed week contains today, the days before today are folded behind an
+    "n earlier days" toggle at the top of the list, so the week opens at what is still to
+    plan. The fold resets when the displayed week changes.
+- **The day's date is its add button** at every width, so a day that already has cooks can
+  be added to without aiming at the gap beside them.
+- Both Saturdays carry a shop-day marker: a bag and "Shop". The marker can be moved to the
+  Sunday of that week, persisted as `weeks/{saturdayISO}.shopDate`; where the shop is not,
+  the marker is a faint bag to tap. From `md` up its slot is reserved on every row, so a
+  day carrying one is no narrower than its neighbours.
 
 **Month view** (for historical browsing):
 
 - A Sunday-to-Saturday grid, six rows.
-- Compact chips: colour dot plus truncated meal name. A day with more cooks than its
-  cell fits ends in a `+n more` line rather than clipping them. Below `md` each cook is
-  its colour dot alone, since a phone-width cell truncates a name to nothing.
+- Borderless rounded cells. Each cook is its category mark (§5) plus truncated meal name;
+  leftovers are dimmed with a return-arrow. A day with more cooks than its cell fits ends
+  in a `+n more` line rather than clipping them. Below `md` each cook is a thin bar in its
+  category's colour, since a phone-width cell truncates a name to nothing; the grid is
+  followed by the hint "Tap any day to open its week".
 - Not a drag target. Clicking a day switches to the week view containing that day.
-- Today's cell is highlighted; days outside the displayed month are dimmed.
+- Today's cell is tinted `accent-soft`; days outside the displayed month are dimmed.
 
 ### Routes
 
@@ -244,8 +318,9 @@ One `DndContext` wraps both panes. Four gestures:
 
 Requirements:
 
-- The leftovers gesture is an **explicit small grab-tab on the cook chip**, not a modifier
-  drag. It must be discoverable without instruction and must work on touch. Dragging the
+- The leftovers gesture is an **explicit small grab-tab on the cook chip** — a
+  return-arrow at the right end of a `cook` chip or card (leftovers do not carry one) — not
+  a modifier drag. It must be discoverable without instruction and must work on touch. Dragging the
   tab places leftovers on any day; clicking it adds them to the next day, which is the
   answer nearly every time.
 - Every day row is its own droppable, so empty days accept drops.
@@ -261,13 +336,21 @@ Requirements:
 - Every drag gesture has a click/keyboard equivalent: each day row's add button adds a
   cook, and cook chips can be moved and deleted without dragging. Drag is never the only
   path.
-- The day row's meal picker searches the library, and on no match offers to create that
-  meal with the name prefilled. The new meal is planned on that day as well as added to
-  the library — planning it is why it was searched for.
-- A cook chip's `⋯` menu offers **move to** and **add leftovers to** as a strip of the
-  week's eight days — a small calendar to point at, never a list of day names to read
-  down. It also reorders the chip within its day and removes it. **Clicking the chip
-  itself opens that menu**, so the chip is a tap target before it is a drag handle.
+- The day row's meal picker is a search field over the library as meal cards — the same
+  cards as the left pane, **sorted longest since cooked first**, planned meals outlined —
+  ending in a dashed "New meal" card (`Create "…"` while a search is typed). As a sheet it
+  is titled `Add to Tue 15`, with "Longest since cooked first" beneath. Like the library's,
+  a search that matches nothing offers to create that meal with the name prefilled. The
+  new meal is planned on that day as well as added to the library — planning it is why it
+  was searched for.
+- **Clicking a cook chip opens its menu**, so the chip is a tap target before it is a drag
+  handle; there is no separate menu button. The menu offers **move to** and **add
+  leftovers to** as strips of the week's eight days — a small calendar to point at, never
+  a list of day names to read down. In the move strip the chip's own day is filled and
+  not pickable. In the leftovers strip the chip's day and every day before it are
+  disabled, and the next day is tinted as the likeliest pick. Below the strips, the menu
+  reorders the chip earlier or later within its day (when the day has another cook) and
+  removes it.
 - Drag handles allow vertical panning rather than suppressing touch outright. Chips and
   meal cards cover most of both panes, and a finger landing on one has to be able to
   scroll. The touch sensor starts on a hold, so a swipe scrolls and a hold still drags.
@@ -275,9 +358,11 @@ Requirements:
 - A cook chip's menu and a day's meal picker flip above or right-align themselves when
   there is no room below. Both panes scroll, so a panel that always opened downwards
   would be clipped. Below `md` these panels are **bottom sheets** instead — reachable by
-  thumb, and never squeezed against an edge. A sheet is portalled to the body: a dragging
-  chip carries a transform, and a `fixed` descendant of a transformed element positions
-  against that element rather than the viewport.
+  thumb, and never squeezed against an edge. Every sheet has the same header: the tile of
+  the meal it acts on where there is one, a title, a subtitle (the day, or the meal's
+  history), and a close button. A sheet is portalled to the body: a dragging chip carries
+  a transform, and a `fixed` descendant of a transformed element positions against that
+  element rather than the viewport.
 - The meal picker's search field is not focused when it opens on a phone. The library is
   a list to point at, and a keyboard sliding up over it is the opposite of that gesture.
 - An open panel, **and the chip that owns it**, are raised above the rest of the planner.
@@ -313,12 +398,14 @@ Requirements:
 
 ```
 src/
-  types.ts               # Meal, Cook, Week, ColorToken, MealStats
+  types.ts               # Meal, Cook, Week, Category, MealCategory, MealStats
   lib/
     firebase.ts          # app init, db handle, anonymous sign-in
-    dates.ts             # Saturday-week maths, month grid, ISO helpers
-    visuals.ts           # colour tokens, fill treatments, chip class builder
-    planner.ts           # cooksOnDate: a day's cooks sorted by order
+    dates.ts             # Saturday-week maths, month grid, ISO helpers, labels
+    categories.ts        # the category set, and its tile and mark classes
+    planner.ts           # cooksOnDate, and cookDetails: each cook's §4 detail line
+    mealSort.ts          # sortMeals, shared by the library and the day picker
+    plannerRoute.ts      # usePlannerRoute: the displayed week or month, and moves
     dnd.ts               # drag id helpers, DragData/DropData payload types
     responsive.ts        # useIsMobile, for the cases where markup differs, not just CSS
   data/
@@ -331,9 +418,14 @@ src/
   components/
     MealList.tsx
     MealCard.tsx
+    MealSummary.tsx      # a meal card's contents: tile, chips, headline figure
     MealDialog.tsx       # create/edit
-    VisualPicker.tsx
+    CategoryPicker.tsx   # main tiles and secondary chips
+    MealTile.tsx         # a meal's image: category icon, tint, secondary badge
+    CategoryChips.tsx    # a meal's category names as small chips
+    Icon.tsx             # inline SVG paths: category icons and interface glyphs
     Planner.tsx          # view switch
+    PlannerToolbar.tsx   # the planner's controls: desktop header, phone pane header
     WeekView.tsx
     DayRow.tsx
     CookChip.tsx
@@ -343,10 +435,10 @@ src/
                          # is placed on a day without dragging it there
     Popover.tsx          # anchored panel that flips to stay on screen, and is a
                          # bottom sheet below md: the day picker, the cook chip
-                         # menu, the meal card menu, the sort menu
-  App.tsx                # two-pane shell, mobile tab bar, routes, dark mode, DndContext
+                         # menu, the meal card menu
+  App.tsx                # shell with header and tab bar, routes, dark mode, DndContext
   main.tsx
-  index.css              # Tailwind import, dark variant, @theme colour tokens
+  index.css              # Tailwind import, dark variant, @theme interface palette
 firestore.rules
 .github/workflows/deploy.yml   # build and publish to GitHub Pages
 ```
@@ -359,7 +451,7 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
       shell with dark toggle; `lib/firebase.ts` with anonymous auth; `types.ts`;
       `lib/dates.ts`; colour tokens in `index.css`; `firestore.rules`.
 - [x] **2. Meals** — `useMeals`; left pane list with search and sort; meal create/edit
-      dialog with visual picker; archive. *Checkpoint: the real meal library can be
+      dialog with category picker; archive. *Checkpoint: the real meal library can be
       entered.*
 - [x] **3. Week planner** — eight Sat→Sat day rows; cook chips; add via `+`; delete;
       `useMealStats` wired into the left pane. *Checkpoint: usable for planning without
@@ -371,6 +463,10 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
 - [x] **6. Polish** — empty states, undo for deletes, README, deploy.
 - [x] **7. Phone** — tabbed panes under a bottom bar, bottom sheets, tap equivalents for
       everything that spanned the two panes, condensed spacing.
+- [x] **8. Categories and redesign** — meal categories with SVG tiles, chips, and marks;
+      interface palette tokens; toolbar in the desktop header; pane headers on a phone;
+      sort pills; phone month bars; the phone week as a list of cook cards with earlier
+      days folded; the picker as sorted cards.
 
 ## 10. Forward compatibility
 
@@ -388,6 +484,7 @@ migrating when they arrive. Two standing constraints:
 
 ## 11. Out of scope
 
-The app does not include: ratings, prep or cook time, tags or categories, per-cook
+The app does not include: ratings, prep or cook time, free-form tags, categories beyond
+the closed set in §5, per-cook
 serving overrides, shopping lists, meal photos, recipe or ingredient storage, any "done"
 or "skipped" state on a cook, accounts, or sharing controls.

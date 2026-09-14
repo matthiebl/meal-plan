@@ -2,9 +2,11 @@ import { useDraggable } from '@dnd-kit/core'
 import { useState } from 'react'
 import { formatISODay } from '../lib/dates'
 import { mealDragId } from '../lib/dnd'
-import { chipClasses } from '../lib/visuals'
 import type { Meal, MealStats } from '../types'
 import DayStrip from './DayStrip'
+import Icon from './Icon'
+import MealSummary, { MEAL_CARD_CLASSES, PLANNED_OUTLINE } from './MealSummary'
+import MealTile from './MealTile'
 import Popover from './Popover'
 
 type MealCardProps = {
@@ -12,34 +14,31 @@ type MealCardProps = {
   stats: MealStats
   /** The eight days the planner is showing, so the card can plan onto one. */
   weekDays: Date[]
+  /** Makes times cooked the headline figure, in place of days since. */
+  headlineTimesCooked: boolean
   onPlan: (date: string) => void
   onEdit: () => void
 }
 
-/** How long ago a meal was last eaten, as the card's headline figure. */
-function sinceLabel(daysSince: number): { value: string; caption: string } {
-  if (daysSince === 0) return { value: 'Today', caption: 'last eaten' }
-  if (daysSince === 1) return { value: '1', caption: 'day ago' }
-  return { value: String(daysSince), caption: 'days ago' }
+/** Times cooked, as a phrase. */
+function cookedLabel(timesCooked: number): string {
+  return timesCooked === 0 ? 'never cooked' : timesCooked === 1 ? 'cooked once' : `cooked ${timesCooked}×`
 }
 
 /**
- * One meal in the library: its visual, servings, and the §4 derived
- * statistics. Days since is the headline figure, because it is what the
- * default sort orders by and the question the library exists to answer.
+ * One meal in the library, as a MealSummary whose headline figure follows
+ * the list's sort.
  *
  * Draggable onto a day to create a cook there. Clicking it opens the same
  * thing as a week strip to point at — the only path to planning from here on
  * a phone, where the two panes are never on screen together. See PLAN.md §6.
  */
-export default function MealCard({ meal, stats, weekDays, onPlan, onEdit }: MealCardProps) {
+export default function MealCard({ meal, stats, weekDays, headlineTimesCooked, onPlan, onEdit }: MealCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: mealDragId(meal.id),
     data: { type: 'meal', meal },
   })
-
-  const since = stats.daysSince === null ? null : sinceLabel(stats.daysSince)
 
   return (
     <Popover
@@ -47,6 +46,8 @@ export default function MealCard({ meal, stats, weekDays, onPlan, onEdit }: Meal
       onClose={() => setMenuOpen(false)}
       panelClassName="w-[19rem]"
       sheetTitle={meal.name}
+      sheetSubtitle={`${stats.lastEaten ? `Last eaten ${formatISODay(stats.lastEaten)}` : 'Never eaten'} · ${cookedLabel(stats.timesCooked)}`}
+      sheetLead={<MealTile category={meal.category} size="header" surface="surface-3" />}
       trigger={
         <button
           ref={setNodeRef}
@@ -59,77 +60,15 @@ export default function MealCard({ meal, stats, weekDays, onPlan, onEdit }: Meal
           // `touch-pan-y`, not `touch-none`: the card covers most of the list,
           // and a finger on one has to be able to scroll it. The drag sensor
           // is hold-to-start, so a swipe scrolls and a hold still drags.
-          className={`w-full cursor-grab touch-pan-y rounded-xl border border-gray-200 bg-white p-2.5 text-left transition-colors hover:border-gray-300 hover:bg-gray-50 active:cursor-grabbing md:p-3 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700 dark:hover:bg-gray-800/60 ${
-            isDragging ? 'opacity-40' : ''
-          }`}
+          className={`${MEAL_CARD_CLASSES} cursor-grab touch-pan-y transition-shadow active:cursor-grabbing ${
+            stats.nextPlanned ? PLANNED_OUTLINE : ''
+          } ${isDragging ? 'opacity-40' : ''}`}
         >
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <span
-                className={`inline-flex max-w-full items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold ${chipClasses(
-                  meal.visual,
-                )}`}
-              >
-                {meal.visual.icon && <span className="flex-shrink-0 text-base leading-none">{meal.visual.icon}</span>}
-                <span className="truncate">{meal.name}</span>
-              </span>
-
-              <dl className="mt-2 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
-                <div>
-                  <dt className="sr-only">Servings</dt>
-                  <dd>{meal.servings} servings</dd>
-                </div>
-                <span aria-hidden className="text-gray-300 dark:text-gray-700">
-                  ·
-                </span>
-                <div>
-                  <dt className="sr-only">Times cooked</dt>
-                  <dd>
-                    cooked {stats.timesCooked}
-                    {'×'}
-                  </dd>
-                </div>
-                {stats.lastEaten && (
-                  <>
-                    <span aria-hidden className="text-gray-300 dark:text-gray-700">
-                      ·
-                    </span>
-                    <div>
-                      <dt className="sr-only">Last eaten</dt>
-                      <dd>last {formatISODay(stats.lastEaten)}</dd>
-                    </div>
-                  </>
-                )}
-              </dl>
-
-              {stats.nextPlanned && (
-                <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 dark:bg-gray-800 dark:text-gray-300">
-                  Planned {formatISODay(stats.nextPlanned)}
-                </p>
-              )}
-            </div>
-
-            <div className="flex-shrink-0 text-right">
-              {since ? (
-                <>
-                  <div className="text-2xl font-semibold leading-none tabular-nums text-gray-800 dark:text-gray-100">
-                    {since.value}
-                  </div>
-                  <div className="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{since.caption}</div>
-                </>
-              ) : (
-                <span className="inline-block rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
-                  never
-                </span>
-              )}
-            </div>
-          </div>
+          <MealSummary meal={meal} stats={stats} headlineTimesCooked={headlineTimesCooked} />
         </button>
       }
     >
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">
-        Plan on
-      </p>
+      <p className="mb-2 ml-0.5 text-xs text-ink-3">Plan on</p>
       <DayStrip
         days={weekDays}
         onPick={(iso) => {
@@ -138,15 +77,16 @@ export default function MealCard({ meal, stats, weekDays, onPlan, onEdit }: Meal
         }}
       />
 
-      <div className="mt-3 border-t border-gray-200 pt-3 dark:border-gray-800">
+      <div className="mt-4 border-t border-line">
         <button
           type="button"
           onClick={() => {
             setMenuOpen(false)
             onEdit()
           }}
-          className="w-full rounded-lg px-3 py-2.5 text-left text-sm text-gray-600 transition-colors hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800"
+          className="flex w-full items-center gap-3 px-0.5 pt-3 text-left text-[15px] md:text-sm"
         >
+          <Icon name="pencil" className="h-5 w-5 text-ink-3" />
           Edit meal
         </button>
       </div>

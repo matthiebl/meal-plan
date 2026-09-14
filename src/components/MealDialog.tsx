@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { archiveMeal, addMeal, updateMeal } from '../data/mutations'
 import { useIsMobile } from '../lib/responsive'
-import { chipClasses } from '../lib/visuals'
-import type { Meal, MealVisual } from '../types'
-import VisualPicker from './VisualPicker'
+import type { Meal, MealCategory } from '../types'
+import CategoryChips from './CategoryChips'
+import CategoryPicker from './CategoryPicker'
+import Icon from './Icon'
+import MealTile from './MealTile'
 
 type MealDialogProps = {
   /** null creates a new meal; otherwise edits this one. */
@@ -15,13 +17,19 @@ type MealDialogProps = {
   onClose: () => void
 }
 
-const DEFAULT_VISUAL: MealVisual = { color: 'slate', fill: 'soft' }
+const LABEL = 'mb-1.5 ml-0.5 block text-xs text-ink-3'
+const STEP_BUTTON =
+  'flex h-10 w-10 items-center justify-center rounded-[11px] bg-surface-1 text-ink-2 hover:text-ink disabled:opacity-40'
 
-/** Creates or edits a meal: name, servings, and the three visual dimensions from PLAN.md §5. */
+/**
+ * Creates or edits a meal: name, servings, and category (PLAN.md §5). Save
+ * sits in the header row, so it is on screen however far the form scrolls.
+ * Below `md` this is a bottom sheet.
+ */
 export default function MealDialog({ meal, initialName, onCreated, onClose }: MealDialogProps) {
   const [name, setName] = useState(meal?.name ?? initialName ?? '')
   const [servings, setServings] = useState(meal?.servings ?? 4)
-  const [visual, setVisual] = useState<MealVisual>(meal?.visual ?? DEFAULT_VISUAL)
+  const [category, setCategory] = useState<MealCategory | undefined>(meal?.category)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -41,7 +49,7 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault()
     if (!canSave) return
-    const input = { name: name.trim(), servings, visual }
+    const input = { name: name.trim(), servings, category }
     if (meal) {
       updateMeal(meal.id, input)
     } else {
@@ -61,7 +69,7 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm md:items-center md:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] md:items-center md:p-4"
       onClick={onClose}
     >
       <form
@@ -70,24 +78,41 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
         aria-label={meal ? 'Edit meal' : 'New meal'}
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white px-4 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl md:max-h-[90vh] md:rounded-2xl md:p-6 dark:bg-gray-900"
+        className="flex max-h-[92dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl bg-surface-2 text-ink shadow-2xl md:max-h-[90vh] md:rounded-2xl"
       >
-        <h2 className="text-lg font-semibold md:text-xl">{meal ? 'Edit meal' : 'New meal'}</h2>
-
-        <div className="mt-4 flex items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 md:mt-5 md:p-5 dark:border-gray-700 dark:bg-gray-800/50">
-          <span
-            className={`inline-flex max-w-full items-center gap-2 rounded-full px-4 py-2 text-base font-semibold ${chipClasses(
-              visual,
-            )}`}
-          >
-            {visual.icon && <span className="text-xl leading-none">{visual.icon}</span>}
-            <span className="truncate">{name.trim() || 'Meal name'}</span>
-          </span>
+        <div className="flex-shrink-0 border-b border-line px-4 pt-2.5 pb-3 md:pt-3">
+          <div className="mx-auto mb-2.5 h-1 w-10 rounded-full bg-line-strong md:hidden" />
+          <div className="grid grid-cols-[1fr_auto_1fr] items-center">
+            <button type="button" onClick={onClose} className="justify-self-start py-1 text-sm text-ink-3 hover:text-ink">
+              Cancel
+            </button>
+            <h2 className="text-base font-medium">{meal ? 'Edit meal' : 'New meal'}</h2>
+            <button
+              type="submit"
+              disabled={!canSave}
+              className="justify-self-end py-1 text-sm font-medium text-accent disabled:opacity-40"
+            >
+              Save
+            </button>
+          </div>
         </div>
 
-        <div className="mt-4 space-y-4 md:mt-5 md:space-y-5">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:pb-5">
+          <div className="flex items-center gap-3 rounded-2xl bg-surface-1 p-2">
+            <MealTile category={category} size="card" />
+            <div className="min-w-0 flex-1">
+              <p className={`truncate text-[15px] font-medium ${name.trim() ? '' : 'text-ink-3'}`}>
+                {name.trim() || 'Meal name'}
+              </p>
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                <CategoryChips category={category} />
+                <span className="truncate text-[13px] text-ink-2">Serves {servings}</span>
+              </div>
+            </div>
+          </div>
+
           <div>
-            <label htmlFor="meal-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
+            <label htmlFor="meal-name" className={LABEL}>
               Name
             </label>
             {/* The one thing here that has to be typed. It is not focused on a
@@ -98,72 +123,51 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
               autoFocus={!meal && !isMobile}
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Chicken katsu curry"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-base dark:border-gray-700 dark:bg-gray-800"
+              placeholder="e.g. Chicken carbonara"
+              className="w-full rounded-xl bg-surface-1 px-3.5 py-2.5 text-base placeholder:text-ink-3"
             />
           </div>
 
           <div>
-            <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Servings</span>
-            <div className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-700">
+            <span className={LABEL}>Servings</span>
+            <div className="flex items-center gap-3.5">
               <button
                 type="button"
                 onClick={() => setServings((s) => Math.max(1, s - 1))}
+                disabled={servings <= 1}
                 aria-label="One fewer serving"
-                className="h-11 w-11 rounded-l-lg text-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                className={STEP_BUTTON}
               >
-                −
+                <Icon name="minus" />
               </button>
-              <output
-                aria-live="polite"
-                className="flex h-11 w-14 items-center justify-center border-x border-gray-300 text-base font-medium tabular-nums dark:border-gray-700"
-              >
+              <output aria-live="polite" className="min-w-5 text-center text-lg font-medium tabular-nums">
                 {servings}
               </output>
               <button
                 type="button"
                 onClick={() => setServings((s) => s + 1)}
                 aria-label="One more serving"
-                className="h-11 w-11 rounded-r-lg text-lg text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800"
+                className={STEP_BUTTON}
               >
-                +
+                <Icon name="plus" />
               </button>
             </div>
           </div>
 
-          <VisualPicker value={visual} onChange={setVisual} />
-        </div>
+          <CategoryPicker value={category} onChange={setCategory} />
 
-        {/* Pinned on a phone, where the form is longer than the sheet: Save is
-            the reason the sheet is open and should never need scrolling to. */}
-        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-3 md:static md:m-0 md:mt-7 md:border-0 md:p-0 dark:border-gray-800 dark:bg-gray-900">
-          {meal ? (
-            <button
-              type="button"
-              onClick={handleArchive}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
-            >
-              Archive
-            </button>
-          ) : (
-            <span />
+          {meal && (
+            <div className="border-t border-line pt-1">
+              <button
+                type="button"
+                onClick={handleArchive}
+                className="flex w-full items-center gap-3 px-0.5 py-2.5 text-left text-[15px] text-danger md:text-sm"
+              >
+                <Icon name="archive" />
+                Archive meal
+              </button>
+            </div>
           )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium hover:bg-gray-100 dark:border-gray-700 dark:hover:bg-gray-800"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={!canSave}
-              className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40 dark:bg-white dark:text-gray-900"
-            >
-              {meal ? 'Save' : 'Add meal'}
-            </button>
-          </div>
         </div>
       </form>
     </div>

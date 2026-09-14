@@ -1,8 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { addCook, addLeftovers, deleteCook, moveCook, reorderDay, restoreCook, setShopDate } from '../data/mutations'
+import { useMealStats } from '../data/useMealStats'
 import { useWeekMeta } from '../data/useWeekMeta'
-import { formatISODay, nextISODate, toISODate, weekDays } from '../lib/dates'
-import { cooksOnDate } from '../lib/planner'
+import Icon from './Icon'
+import { formatISODay, nextISODate, toISODate, todayISODate, weekDays } from '../lib/dates'
+import { EMPTY_STATS } from '../lib/mealSort'
+import { cookDetails, cooksOnDate } from '../lib/planner'
+import { useIsMobile } from '../lib/responsive'
 import type { Cook, Meal } from '../types'
 import DayRow from './DayRow'
 
@@ -17,8 +21,13 @@ type WeekViewProps = {
 /** A message with an optional undo, shown briefly at the foot of the pane. */
 type Toast = { message: string; undo?: () => void }
 
-/** Saturday through the following Saturday, eight day rows. See PLAN.md §6. */
+/**
+ * Saturday through the following Saturday, eight days. From `md` up they are
+ * rows sharing the pane's height; on a phone they are a scrolling list, with
+ * the current week's days before today folded away. See PLAN.md §6.
+ */
 export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
+  const isMobile = useIsMobile()
   const mealsById = useMemo(() => new Map(meals.map((meal) => [meal.id, meal])), [meals])
   const activeMeals = useMemo(() => meals.filter((meal) => !meal.archived), [meals])
   const days = useMemo(() => weekDays(saturday), [saturday])
@@ -28,6 +37,21 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
     for (const day of days) map.set(toISODate(day), cooksOnDate(cooks, toISODate(day)))
     return map
   }, [days, cooks])
+
+  const statsByMealId = useMealStats(cooks)
+  const statsFor = useCallback((meal: Meal) => statsByMealId.get(meal.id) ?? EMPTY_STATS, [statsByMealId])
+  const detailsByCookId = useMemo(() => cookDetails(cooks, [...cooksByDay.values()].flat()), [cooks, cooksByDay])
+
+  // On a phone, a week containing today opens at today: the days before it
+  // are history, and folding them keeps what is still to plan on screen.
+  // Resets whenever the displayed week changes.
+  const [earlierShownFor, setEarlierShownFor] = useState<string | null>(null)
+  const today = todayISODate()
+  const weekStartISO = toISODate(saturday)
+  const earlierCount = days.some((day) => toISODate(day) === today)
+    ? days.filter((day) => toISODate(day) < today).length
+    : 0
+  const foldEarlier = isMobile && earlierCount > 0 && earlierShownFor !== weekStartISO
 
   // Both Saturdays shown carry their own shop-day marker, each defaulting to
   // its own Saturday but movable to the Sunday right after. See PLAN.md §6.
@@ -128,12 +152,27 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {/* The eight rows share the pane's height rather than bunching at the
-            top, growing past their share only when a day fills up. */}
-        <div className="flex min-h-full flex-col">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 md:px-3 md:py-2">
+        {isMobile && earlierCount > 0 && (
+          <button
+            type="button"
+            onClick={() => setEarlierShownFor(foldEarlier ? weekStartISO : null)}
+            aria-expanded={!foldEarlier}
+            className="flex h-9 items-center gap-2 text-xs text-ink-3"
+          >
+            <Icon name={foldEarlier ? 'chevron-down' : 'chevron-up'} className="h-4 w-4" />
+            {foldEarlier
+              ? `${earlierCount} earlier ${earlierCount === 1 ? 'day' : 'days'}`
+              : 'Hide earlier days'}
+          </button>
+        )}
+        {/* From `md` up the eight rows share the pane's height rather than
+            bunching at the top, growing past their share only when a day
+            fills up. */}
+        <div className="md:flex md:min-h-full md:flex-col">
           {days.map((day, index) => {
             const iso = toISODate(day)
+            if (foldEarlier && iso < today) return null
             return (
               <DayRow
                 key={iso}
@@ -141,6 +180,8 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
                 cooks={cooksByDay.get(iso) ?? []}
                 mealsById={mealsById}
                 activeMeals={activeMeals}
+                statsFor={statsFor}
+                cookDetails={detailsByCookId}
                 weekDays={days}
                 showMonth={index === 0 || day.getDate() === 1}
                 shopDay={shopDayByDate.get(iso)}
@@ -158,13 +199,13 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
 
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4">
-          <div className="pointer-events-auto flex max-w-full items-center gap-4 rounded-full bg-gray-900 py-2.5 pr-3 pl-5 text-sm text-white shadow-xl dark:bg-white dark:text-gray-900">
+          <div className="pointer-events-auto flex max-w-full items-center gap-4 rounded-full bg-primary py-2.5 pr-3 pl-5 text-sm text-on-primary shadow-xl">
             <span className="truncate">{toast.message}</span>
             {toast.undo && (
               <button
                 type="button"
                 onClick={runUndo}
-                className="flex-shrink-0 rounded-full px-3 py-1 font-semibold underline underline-offset-2 hover:bg-white/15 dark:hover:bg-gray-900/10"
+                className="flex-shrink-0 rounded-full px-3 py-1 font-medium underline underline-offset-2 hover:bg-on-primary/10"
               >
                 Undo
               </button>

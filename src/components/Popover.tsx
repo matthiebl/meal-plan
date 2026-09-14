@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsMobile } from '../lib/responsive'
+import Icon from './Icon'
 
 type PopoverProps = {
   open: boolean
@@ -10,9 +11,12 @@ type PopoverProps = {
    * wrapper so that clicking it never registers as an outside click — which
    * would close and immediately reopen the panel.
    */
-  trigger: ReactNode
+  trigger?: ReactNode
   children: ReactNode
-  /** Classes for the wrapper, so a trigger can stretch within a flex row. */
+  /**
+   * Classes for the wrapper, which anchors the panel. Defaults to `relative`;
+   * a caller replacing it must position the wrapper itself.
+   */
   className?: string
   /** Classes for the anchored panel, typically its width. Sheets are full width. */
   panelClassName?: string
@@ -22,7 +26,11 @@ type PopoverProps = {
    */
   anchorRef?: RefObject<HTMLElement | null>
   /** Heading for the sheet. Anchored panels label themselves in `children`. */
-  sheetTitle?: string
+  sheetTitle: string
+  /** A line beneath the sheet's heading. */
+  sheetSubtitle?: string
+  /** Shown before the sheet's heading — the tile of the meal it acts on. */
+  sheetLead?: ReactNode
 }
 
 /**
@@ -43,10 +51,12 @@ export default function Popover({
   onClose,
   trigger,
   children,
-  className = '',
+  className = 'relative',
   panelClassName = '',
   anchorRef,
   sheetTitle,
+  sheetSubtitle,
+  sheetLead,
 }: PopoverProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [placement, setPlacement] = useState({ up: false, alignRight: false })
@@ -92,7 +102,7 @@ export default function Popover({
   }, [])
 
   return (
-    <div ref={containerRef} className={`relative ${open && !asSheet ? 'z-40' : ''} ${className}`}>
+    <div ref={containerRef} className={`${open && !asSheet ? 'z-40' : ''} ${className}`}>
       {trigger}
 
       {open &&
@@ -107,10 +117,24 @@ export default function Popover({
                 aria-modal="true"
                 aria-label={sheetTitle}
                 onClick={(event) => event.stopPropagation()}
-                className="max-h-[85dvh] overflow-y-auto rounded-t-2xl bg-white px-4 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom))] text-gray-900 shadow-2xl dark:bg-gray-900 dark:text-gray-100"
+                className="max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-line bg-surface-3 px-4 pt-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] text-ink shadow-2xl"
               >
-                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-gray-300 dark:bg-gray-700" />
-                {sheetTitle && <h2 className="mb-3 text-base font-semibold">{sheetTitle}</h2>}
+                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
+                <div className="mb-4 flex items-center gap-3">
+                  {sheetLead}
+                  <div className="min-w-0 flex-1">
+                    <h2 className="truncate text-[15px] font-medium">{sheetTitle}</h2>
+                    {sheetSubtitle && <p className="mt-0.5 truncate text-[13px] text-ink-3">{sheetSubtitle}</p>}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    aria-label="Close"
+                    className="-mr-1.5 flex h-9 w-9 items-center justify-center rounded-full text-ink-3 hover:bg-surface-1"
+                  >
+                    <Icon name="x" />
+                  </button>
+                </div>
                 {children}
               </div>
             </div>,
@@ -119,7 +143,7 @@ export default function Popover({
         ) : (
           <div
             ref={measurePanel}
-            className={`absolute z-30 rounded-xl border border-gray-200 bg-white p-3 text-gray-900 shadow-xl dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100 ${
+            className={`absolute z-30 rounded-2xl border border-line bg-surface-3 p-3 text-ink shadow-xl ${
               placement.up ? 'bottom-full mb-2' : 'top-full mt-2'
             } ${placement.alignRight ? 'right-0' : 'left-0'} ${panelClassName}`}
           >
