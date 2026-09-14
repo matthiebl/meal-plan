@@ -108,6 +108,12 @@ export function formatWeekRange(saturday: Date): string {
   return `${format(saturday, isSameMonthFns(saturday, end) ? 'd' : 'd MMM')} – ${format(end, 'd MMM yyyy')}`
 }
 
+/** A week without its year, for a narrow toolbar, e.g. '12 – 19 Sep'. */
+export function formatWeekRangeShort(saturday: Date): string {
+  const end = addDays(saturday, 7)
+  return `${format(saturday, isSameMonthFns(saturday, end) ? 'd' : 'd MMM')} – ${format(end, 'd MMM')}`
+}
+
 /** A 'YYYY-MM-DD' string as a readable day, e.g. 'Fri 12 Sep'. */
 export function formatISODay(iso: string): string {
   return format(fromISODate(iso), 'EEE d MMM')

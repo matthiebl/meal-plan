@@ -46,7 +46,32 @@
     outline-offset: 2px;
   }
 
+  /*
+   * The app is a fixed-height shell whose panes scroll inside themselves, so
+   * the document itself never scrolls. Without this, `100vh` on a phone is
+   * taller than the visible viewport and the page scrolls to a band of bare
+   * body below the app.
+   */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
   body {
     -webkit-font-smoothing: antialiased;
+    background-color: var(--color-gray-50);
+  }
+
+  html.dark body {
+    background-color: var(--color-gray-950);
+  }
+
+  /* Suppress the tap-highlight flash and the 300ms delay on touch. */
+  :where(button, a, [role='button']) {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 }

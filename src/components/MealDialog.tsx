@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { archiveMeal, addMeal, updateMeal } from '../data/mutations'
+import { useIsMobile } from '../lib/responsive'
 import { chipClasses } from '../lib/visuals'
 import type { Meal, MealVisual } from '../types'
 import VisualPicker from './VisualPicker'
@@ -21,6 +22,7 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
   const [name, setName] = useState(meal?.name ?? initialName ?? '')
   const [servings, setServings] = useState(meal?.servings ?? 4)
   const [visual, setVisual] = useState<MealVisual>(meal?.visual ?? DEFAULT_VISUAL)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -59,7 +61,7 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm md:items-center md:p-4"
       onClick={onClose}
     >
       <form
@@ -68,11 +70,11 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
         aria-label={meal ? 'Edit meal' : 'New meal'}
         onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-900"
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white px-4 pt-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl md:max-h-[90vh] md:rounded-2xl md:p-6 dark:bg-gray-900"
       >
-        <h2 className="text-xl font-semibold">{meal ? 'Edit meal' : 'New meal'}</h2>
+        <h2 className="text-lg font-semibold md:text-xl">{meal ? 'Edit meal' : 'New meal'}</h2>
 
-        <div className="mt-5 flex items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-5 dark:border-gray-700 dark:bg-gray-800/50">
+        <div className="mt-4 flex items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 md:mt-5 md:p-5 dark:border-gray-700 dark:bg-gray-800/50">
           <span
             className={`inline-flex max-w-full items-center gap-2 rounded-full px-4 py-2 text-base font-semibold ${chipClasses(
               visual,
@@ -83,15 +85,17 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
           </span>
         </div>
 
-        <div className="mt-5 space-y-5">
+        <div className="mt-4 space-y-4 md:mt-5 md:space-y-5">
           <div>
             <label htmlFor="meal-name" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
               Name
             </label>
+            {/* The one thing here that has to be typed. It is not focused on a
+                phone, where the keyboard would cover the rest of the form. */}
             <input
               id="meal-name"
               type="text"
-              autoFocus
+              autoFocus={!meal && !isMobile}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Chicken katsu curry"
@@ -100,9 +104,7 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
           </div>
 
           <div>
-            <label htmlFor="meal-servings" className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">
-              Servings
-            </label>
+            <span className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300">Servings</span>
             <div className="inline-flex items-center rounded-lg border border-gray-300 dark:border-gray-700">
               <button
                 type="button"
@@ -112,14 +114,12 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
               >
                 −
               </button>
-              <input
-                id="meal-servings"
-                type="number"
-                min={1}
-                value={servings}
-                onChange={(e) => setServings(Math.max(1, Number(e.target.value)))}
-                className="h-11 w-14 border-x border-gray-300 bg-transparent text-center text-base font-medium tabular-nums [appearance:textfield] dark:border-gray-700 [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-              />
+              <output
+                aria-live="polite"
+                className="flex h-11 w-14 items-center justify-center border-x border-gray-300 text-base font-medium tabular-nums dark:border-gray-700"
+              >
+                {servings}
+              </output>
               <button
                 type="button"
                 onClick={() => setServings((s) => s + 1)}
@@ -134,7 +134,9 @@ export default function MealDialog({ meal, initialName, onCreated, onClose }: Me
           <VisualPicker value={visual} onChange={setVisual} />
         </div>
 
-        <div className="mt-7 flex items-center justify-between gap-3">
+        {/* Pinned on a phone, where the form is longer than the sheet: Save is
+            the reason the sheet is open and should never need scrolling to. */}
+        <div className="sticky bottom-[calc(-1.25rem-env(safe-area-inset-bottom))] -mx-4 mt-6 flex items-center justify-between gap-3 border-t border-gray-200 bg-white px-4 py-3 md:static md:m-0 md:mt-7 md:border-0 md:p-0 dark:border-gray-800 dark:bg-gray-900">
           {meal ? (
             <button
               type="button"

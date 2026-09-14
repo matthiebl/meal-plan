@@ -1,8 +1,13 @@
 import { useCallback, useMemo, useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { addCook } from '../data/mutations'
 import { useMealStats } from '../data/useMealStats'
+import { fromISODate, fromMonthParam, weekDays, weekStartSaturday } from '../lib/dates'
+import { cooksOnDate } from '../lib/planner'
 import type { Cook, Meal, MealStats } from '../types'
 import MealCard from './MealCard'
 import MealDialog from './MealDialog'
+import Popover from './Popover'
 
 type MealListProps = {
   meals: Meal[]
@@ -50,6 +55,7 @@ function sortMeals(meals: Meal[], statsFor: (meal: Meal) => MealStats, sortKey: 
 export default function MealList({ meals, cooks, loading }: MealListProps) {
   const [search, setSearch] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('daysSince')
+  const [sortOpen, setSortOpen] = useState(false)
   const [dialogState, setDialogState] = useState<{
     open: boolean
     meal: Meal | null
@@ -65,6 +71,18 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
 
   const active = useMemo(() => meals.filter((meal) => !meal.archived), [meals])
 
+  // A meal is planned onto the week the planner is showing, so the two panes
+  // always agree about which eight days "this week" means.
+  const { date, ym } = useParams()
+  const days = useMemo(() => {
+    const anchor = date ? fromISODate(date) : ym ? fromMonthParam(ym) : new Date()
+    return weekDays(weekStartSaturday(anchor))
+  }, [date, ym])
+
+  function planMeal(mealId: string, iso: string) {
+    addCook({ mealId, date: iso, kind: 'cook', order: cooksOnDate(cooks, iso).length })
+  }
+
   const visible = useMemo(() => {
     const query = search.trim().toLowerCase()
     const filtered = query ? active.filter((meal) => meal.name.toLowerCase().includes(query)) : active
@@ -73,14 +91,14 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-shrink-0 space-y-3 border-b border-gray-200 px-4 pt-4 pb-3 dark:border-gray-800">
-        <div className="flex items-center justify-between gap-2">
+      <div className="flex-shrink-0 border-b border-gray-200 px-3 pt-2.5 pb-2.5 md:space-y-3 md:px-4 md:pt-4 md:pb-3 dark:border-gray-800">
+        {/* No title row on a phone: the bottom bar already names this pane, so
+            the row it would take goes to the list. */}
+        <div className="hidden items-center justify-between gap-2 md:flex">
           <h2 className="flex items-baseline gap-2 text-lg font-semibold">
             Meals
             {!loading && active.length > 0 && (
-              <span className="text-sm font-normal text-gray-400 tabular-nums dark:text-gray-500">
-                {active.length}
-              </span>
+              <span className="text-sm font-normal text-gray-400 tabular-nums dark:text-gray-500">{active.length}</span>
             )}
           </h2>
           <button
@@ -106,31 +124,67 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
               <circle cx="11" cy="11" r="7" />
               <path d="m20 20-3.5-3.5" strokeLinecap="round" />
             </svg>
+            {/* 16px on a phone: anything smaller makes iOS zoom the page in on focus. */}
             <input
               type="search"
               placeholder="Search meals…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 py-2 pr-3 pl-9 text-sm dark:border-gray-700 dark:bg-gray-800"
+              className="w-full rounded-lg border border-gray-300 py-2 pr-3 pl-9 text-base md:text-sm dark:border-gray-700 dark:bg-gray-800"
             />
           </div>
-          <select
-            value={sortKey}
-            onChange={(e) => setSortKey(e.target.value as SortKey)}
-            aria-label="Sort meals"
-            title="Sort meals"
-            className="flex-shrink-0 rounded-lg border border-gray-300 px-2 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+          <Popover
+            open={sortOpen}
+            onClose={() => setSortOpen(false)}
+            className="flex-shrink-0"
+            panelClassName="w-52"
+            sheetTitle="Sort meals by"
+            trigger={
+              <button
+                type="button"
+                onClick={() => setSortOpen((open) => !open)}
+                aria-label={`Sort meals — currently ${SORT_LABELS[sortKey].toLowerCase()}`}
+                aria-expanded={sortOpen}
+                className="flex h-full items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden className="h-4 w-4 flex-shrink-0">
+                  <path d="M7 4a1 1 0 0 1 1 1v11.59l1.3-1.3a1 1 0 0 1 1.4 1.42l-3 3a1 1 0 0 1-1.4 0l-3-3a1 1 0 0 1 1.4-1.42L6 16.6V5a1 1 0 0 1 1-1Zm7 1h7a1 1 0 1 1 0 2h-7a1 1 0 0 1 0-2Zm0 5h5a1 1 0 1 1 0 2h-5a1 1 0 1 1 0-2Zm0 5h3a1 1 0 1 1 0 2h-3a1 1 0 1 1 0-2Z" />
+                </svg>
+                <span className="hidden truncate lg:inline">{SORT_LABELS[sortKey]}</span>
+              </button>
+            }
           >
-            {Object.entries(SORT_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
+            {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => {
+                  setSortKey(key)
+                  setSortOpen(false)
+                }}
+                aria-pressed={sortKey === key}
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-gray-100 dark:hover:bg-gray-800 ${
+                  sortKey === key ? 'font-semibold text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                {SORT_LABELS[key]}
+                {sortKey === key && <span aria-hidden>✓</span>}
+              </button>
             ))}
-          </select>
+          </Popover>
+
+          <button
+            type="button"
+            onClick={() => setDialogState({ open: true, meal: null })}
+            aria-label="New meal"
+            className="flex w-9.5 flex-shrink-0 items-center justify-center rounded-lg bg-gray-900 text-xl leading-none text-white md:hidden dark:bg-white dark:text-gray-900"
+          >
+            +
+          </button>
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-2.5 md:space-y-2 md:p-3">
         {loading ? (
           <MealListSkeleton />
         ) : visible.length === 0 ? (
@@ -157,6 +211,8 @@ export default function MealList({ meals, cooks, loading }: MealListProps) {
               key={meal.id}
               meal={meal}
               stats={statsFor(meal)}
+              weekDays={days}
+              onPlan={(iso) => planMeal(meal.id, iso)}
               onEdit={() => setDialogState({ open: true, meal })}
             />
           ))

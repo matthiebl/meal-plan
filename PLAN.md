@@ -125,7 +125,9 @@ arbitrary colours break palette coherence and dark-mode contrast.
      lighten under `.dark`, so one fixed text colour is unreadable on several of them.
    - `soft` — ~10% tinted background, coloured text
    - `outline` — transparent background, coloured border
-3. **Icon** — an optional single emoji rendered before the name.
+3. **Icon** — an optional single emoji rendered before the name, chosen from a fixed
+   grid of food emoji. It is picked, never typed: reaching an emoji keyboard to fill in a
+   one-character field is the worst interaction a phone can be asked for.
 
 **Leftovers styling is derived, never chosen.** A `leftovers` cook renders with its meal's
 colour plus: a dashed left edge, a `↩` prefix, and reduced opacity. This treatment is
@@ -135,10 +137,27 @@ emoji tile that reads as an unrelated icon.
 
 ## 6. Layout and interaction
 
-A full-height two-pane shell. Below the `md` breakpoint the panes stack into one column,
-meal library above planner, with the meal library capped to 40% of the viewport height so
-both panes scroll independently within their own space rather than one pushing the other
-off-screen. There is a dark-mode toggle.
+A full-height two-pane shell. It fills the viewport exactly and **the document itself
+never scrolls** — each pane scrolls within its own space. A page that scrolls as well as
+its panes ends at a band of bare body below the app, because a phone's `100vh` is taller
+than its visible viewport.
+
+From `md` up, both panes sit side by side beneath a header carrying the app title and the
+dark-mode toggle.
+
+Below `md`, **one pane is on screen at a time, chosen by a two-tab bottom bar** — Plan and
+Meals — which also carries the dark-mode toggle. Stacking both panes leaves each too short
+to work in; separating them gives whichever is in use the whole screen. There is no title
+bar at this width: the bar already names the pane, and the height a title would cost is a
+day row. Padding, control sizes, and labels condense throughout, so the planner shows a
+whole week without scrolling.
+
+Because the two panes are never on screen together on a phone, **every gesture that spans
+them has an equivalent that does not** — see the meal card's plan menu below.
+
+**Nothing is typed where it can be tapped.** Text entry is reserved for the two things
+that are genuinely free text: a meal's name, and the search boxes. Servings, sort order,
+colour, fill, icon, and every choice of day are tapped from a fixed set.
 
 ### Left pane — meal library
 
@@ -153,12 +172,18 @@ A single large scrolling list of every non-archived meal. Each meal card shows:
 Days since is the card's headline figure, set apart from the rest of the line, because
 it is what the default sort orders by.
 
-Controls: a name search, and a sort selector over **days since (descending, default)**,
-name, servings, and times cooked. The default sort is the answer to "what has not been
-cooked in a while"; no separate view exists for that.
+Controls: a name search, and a sort menu over **days since (descending, default)**, name,
+servings, and times cooked. The default sort is the answer to "what has not been cooked in
+a while"; no separate view exists for that.
+
+**Clicking a meal card opens its menu**: the displayed week's eight days as a strip, which
+plans the meal on the day picked, and an entry to edit the meal. The strip is the click
+equivalent of dragging the card onto a day, and on a phone it is the only path from the
+library to the planner.
 
 Meals are created and edited in a dialog covering name, servings, and the three visual
-dimensions from §5.
+dimensions from §5. Servings is a stepper, not a number field. Below `md` the dialog is a
+bottom sheet whose save row stays pinned above the fold.
 
 **A search that matches nothing offers to create that meal, with the name prefilled.**
 Coming up empty is the moment the meal is most likely missing from the library, so it is
@@ -179,7 +204,11 @@ neither spends vertical space on navigation of its own.
 - The eight rows share the pane's height, growing past an equal share only when a day
   fills up. They do not bunch at the top of a tall window.
 - The width a day's cooks have not filled is that day's add button, so spare room reads
-  as somewhere to drop a meal rather than as emptiness.
+  as somewhere to drop a meal rather than as emptiness. **The day's date is that same
+  button**, so a day that already has cooks can be added to without aiming at the gap
+  beside them.
+- Below `md` a day stacks: its date on one line, its cooks beneath. A meal name then gets
+  the row's full width instead of what is left beside a date column.
 - Both Saturdays carry a shop-day marker. The marker can be moved to the Sunday of that
   week, persisted as `weeks/{saturdayISO}.shopDate`. Its slot is reserved on every row,
   so a day carrying one is no taller than its neighbours.
@@ -189,7 +218,8 @@ neither spends vertical space on navigation of its own.
 
 - A Sunday-to-Saturday grid, six rows.
 - Compact chips: colour dot plus truncated meal name. A day with more cooks than its
-  cell fits ends in a `+n more` line rather than clipping them.
+  cell fits ends in a `+n more` line rather than clipping them. Below `md` each cook is
+  its colour dot alone, since a phone-width cell truncates a name to nothing.
 - Not a drag target. Clicking a day switches to the week view containing that day.
 - Today's cell is highlighted; days outside the displayed month are dimmed.
 
@@ -236,10 +266,20 @@ Requirements:
   the library — planning it is why it was searched for.
 - A cook chip's `⋯` menu offers **move to** and **add leftovers to** as a strip of the
   week's eight days — a small calendar to point at, never a list of day names to read
-  down. It also reorders the chip within its day and removes it.
+  down. It also reorders the chip within its day and removes it. **Clicking the chip
+  itself opens that menu**, so the chip is a tap target before it is a drag handle.
+- Drag handles allow vertical panning rather than suppressing touch outright. Chips and
+  meal cards cover most of both panes, and a finger landing on one has to be able to
+  scroll. The touch sensor starts on a hold, so a swipe scrolls and a hold still drags.
+  The leftovers tab is the exception: it is small and precise, and claims the gesture.
 - A cook chip's menu and a day's meal picker flip above or right-align themselves when
   there is no room below. Both panes scroll, so a panel that always opened downwards
-  would be clipped.
+  would be clipped. Below `md` these panels are **bottom sheets** instead — reachable by
+  thumb, and never squeezed against an edge. A sheet is portalled to the body: a dragging
+  chip carries a transform, and a `fixed` descendant of a transformed element positions
+  against that element rather than the viewport.
+- The meal picker's search field is not focused when it opens on a phone. The library is
+  a list to point at, and a keyboard sliding up over it is the opposite of that gesture.
 - An open panel, **and the chip that owns it**, are raised above the rest of the planner.
   A cook chip carries a drag transform, which makes it a stacking context, so a z-index
   on the panel alone cannot lift it over later rows — whose own add buttons are
@@ -280,6 +320,7 @@ src/
     visuals.ts           # colour tokens, fill treatments, chip class builder
     planner.ts           # cooksOnDate: a day's cooks sorted by order
     dnd.ts               # drag id helpers, DragData/DropData payload types
+    responsive.ts        # useIsMobile, for the cases where markup differs, not just CSS
   data/
     useMeals.ts          # onSnapshot over meals
     useCooks.ts          # onSnapshot over cooks
@@ -298,9 +339,12 @@ src/
     CookChip.tsx
     MonthView.tsx
     DragOverlayChip.tsx
-    Popover.tsx          # anchored panel that flips to stay on screen:
-                         # the day picker, the cook chip menu
-  App.tsx                # two-pane shell, routes, dark mode, DndContext
+    DayStrip.tsx         # the week's eight days as buttons, wherever something
+                         # is placed on a day without dragging it there
+    Popover.tsx          # anchored panel that flips to stay on screen, and is a
+                         # bottom sheet below md: the day picker, the cook chip
+                         # menu, the meal card menu, the sort menu
+  App.tsx                # two-pane shell, mobile tab bar, routes, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme colour tokens
 firestore.rules
@@ -324,7 +368,9 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
       *Checkpoint: the app as specified.*
 - [x] **5. Month view and shop day** — historical grid; click-through to week; movable
       shop marker.
-- [x] **6. Polish** — empty states, mobile stacking, undo for deletes, README, deploy.
+- [x] **6. Polish** — empty states, undo for deletes, README, deploy.
+- [x] **7. Phone** — tabbed panes under a bottom bar, bottom sheets, tap equivalents for
+      everything that spanned the two panes, condensed spacing.
 
 ## 10. Forward compatibility
 

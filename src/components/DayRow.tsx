@@ -1,9 +1,10 @@
 import { useDroppable } from '@dnd-kit/core'
 import { rectSortingStrategy, SortableContext } from '@dnd-kit/sortable'
 import { format } from 'date-fns'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { isToday, toISODate, todayISODate } from '../lib/dates'
 import { cookDragId, dayDropId } from '../lib/dnd'
+import { useIsMobile } from '../lib/responsive'
 import { dotClasses } from '../lib/visuals'
 import type { Cook, Meal } from '../types'
 import CookChip from './CookChip'
@@ -55,6 +56,10 @@ export default function DayRow({
   // A search that finds nothing offers to create that meal, which then lands
   // on this day — the point of searching here was to plan it.
   const [creatingName, setCreatingName] = useState<string | null>(null)
+  // The date opens the picker as well as the trigger does, so it has to count
+  // as inside the popover or its press would read as the click that closes it.
+  const dayLabelRef = useRef<HTMLButtonElement>(null)
+  const isMobile = useIsMobile()
   const today = isToday(date)
   const iso = toISODate(date)
   const past = iso < todayISODate()
@@ -87,37 +92,50 @@ export default function DayRow({
   return (
     <div
       ref={setDropRef}
-      className={`flex min-h-[5.75rem] flex-1 gap-3 border-b border-l-4 border-gray-100 px-3 py-3 transition-colors md:gap-5 md:px-5 dark:border-gray-800 ${
+      // A phone stacks the day's label above its cooks, so a meal name gets
+      // the full width of the row rather than what is left beside a date.
+      className={`flex min-h-16 flex-1 flex-col gap-1 border-b border-l-4 border-gray-100 px-2.5 py-2 transition-colors md:min-h-23 md:flex-row md:gap-5 md:px-5 md:py-3 dark:border-gray-800 ${
         today
           ? 'border-l-gray-900 bg-gray-50 dark:border-l-white dark:bg-gray-800/40'
           : 'border-l-transparent'
       } ${isOver ? 'bg-sky-50 ring-2 ring-inset ring-sky-400 dark:bg-sky-950/40 dark:ring-sky-600' : ''}`}
     >
-      <div className="w-16 flex-shrink-0 md:w-20">
-        <div
-          className={`text-xs font-semibold uppercase tracking-wider ${
-            today ? 'text-gray-900 dark:text-white' : past ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'
-          }`}
+      <div className="flex items-center gap-2 md:w-20 md:flex-shrink-0 md:flex-col md:items-start md:gap-0">
+        {/* The date is itself the day's add button, so a day that already has
+            cooks can be added to without aiming at the gap beside them. */}
+        <button
+          ref={dayLabelRef}
+          type="button"
+          onClick={() => setPickerOpen((open) => !open)}
+          aria-label={`Add a meal on ${format(date, 'EEEE d MMMM')}`}
+          className="flex items-center gap-1.5 rounded-lg text-left transition-colors md:block md:w-full"
         >
-          {format(date, 'EEE')}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span
-            className={`flex h-9 w-9 items-center justify-center rounded-full text-xl font-semibold tabular-nums ${
-              today
-                ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
-                : past
-                  ? 'text-gray-400 dark:text-gray-600'
-                  : 'text-gray-800 dark:text-gray-200'
+          <div
+            className={`text-xs font-semibold uppercase tracking-wider ${
+              today ? 'text-gray-900 dark:text-white' : past ? 'text-gray-400 dark:text-gray-600' : 'text-gray-500 dark:text-gray-400'
             }`}
           >
-            {format(date, 'd')}
-          </span>
-          {showMonth && <span className="text-xs text-gray-400 dark:text-gray-500">{format(date, 'MMM')}</span>}
-        </div>
-        {/* Reserved on every row, so a day carrying a shop marker is not
-            taller than its neighbours. */}
-        <div className="mt-1.5 h-7">
+            {format(date, 'EEE')}
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span
+              className={`flex h-7 w-7 items-center justify-center rounded-full text-base font-semibold tabular-nums md:h-9 md:w-9 md:text-xl ${
+                today
+                  ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900'
+                  : past
+                    ? 'text-gray-400 dark:text-gray-600'
+                    : 'text-gray-800 dark:text-gray-200'
+              }`}
+            >
+              {format(date, 'd')}
+            </span>
+            {showMonth && <span className="text-xs text-gray-400 dark:text-gray-500">{format(date, 'MMM')}</span>}
+          </div>
+        </button>
+        {/* Reserved on every row from `md` up, so a day carrying a shop marker
+            is not taller than its neighbours. On a phone it shares the day's
+            header line, where an empty slot costs nothing. */}
+        <div className="ml-auto md:mt-1.5 md:ml-0 md:h-7">
           {shopDay && (
             <button
               type="button"
@@ -125,7 +143,7 @@ export default function DayRow({
               disabled={shopDay.active}
               aria-pressed={shopDay.active}
               title={shopDay.active ? 'Shop day' : 'Move shop day here'}
-              className={`flex items-center gap-1 rounded-full px-2 py-1 text-[11px] font-medium leading-none transition-colors ${
+              className={`flex items-center gap-1 rounded-full px-2 py-1.5 text-[11px] font-medium leading-none transition-colors md:py-1 ${
                 shopDay.active
                   ? 'bg-amber-100 text-amber-900 dark:bg-amber-500/20 dark:text-amber-200'
                   : 'border border-dashed border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-600 dark:border-gray-700 dark:text-gray-600 dark:hover:border-amber-500 dark:hover:text-amber-400'
@@ -163,27 +181,37 @@ export default function DayRow({
           <Popover
             open={pickerOpen}
             onClose={closePicker}
-            className="h-10 min-w-[7rem] flex-1"
+            anchorRef={dayLabelRef}
+            className={`h-11 flex-1 md:h-10 md:min-w-[7rem] ${cooks.length === 0 ? 'min-w-[7rem]' : 'min-w-11'}`}
             panelClassName="w-72"
+            sheetTitle={`Add a meal on ${format(date, 'EEEE d MMMM')}`}
             trigger={
               <button
                 type="button"
                 onClick={() => setPickerOpen((open) => !open)}
                 aria-label={`Add a meal on ${format(date, 'EEEE d MMMM')}`}
-                className={`flex h-10 w-full items-center gap-1.5 rounded-xl border border-dashed text-sm transition-colors ${
+                className={`flex h-full w-full items-center gap-1.5 rounded-xl border border-dashed text-sm transition-colors ${
                   cooks.length === 0
                     ? 'justify-center border-gray-300 text-gray-400 hover:border-gray-400 hover:bg-gray-50 hover:text-gray-600 dark:border-gray-700 dark:text-gray-500 dark:hover:border-gray-600 dark:hover:bg-gray-800/50'
-                    : 'justify-start border-transparent px-3 text-gray-300 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600 dark:text-gray-600 dark:hover:border-gray-700 dark:hover:bg-gray-800/50 dark:hover:text-gray-300'
+                    : 'justify-center border-transparent text-gray-300 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-600 md:justify-start md:px-3 dark:text-gray-600 dark:hover:border-gray-700 dark:hover:bg-gray-800/50 dark:hover:text-gray-300'
                 }`}
               >
                 <span className="text-base leading-none">+</span>
-                <span>{cooks.length === 0 ? 'Add a meal, or drop one here' : 'Add'}</span>
+                {cooks.length === 0 ? (
+                  <span>
+                    Add a meal<span className="hidden md:inline">, or drop one here</span>
+                  </span>
+                ) : (
+                  <span className="hidden md:inline">Add</span>
+                )}
               </button>
             }
           >
+            {/* Not focused on a phone: the library is a list to point at, and
+                a keyboard sliding up over it is the opposite of the gesture. */}
             <input
               type="search"
-              autoFocus
+              autoFocus={!isMobile}
               placeholder="Search meals…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -192,9 +220,9 @@ export default function DayRow({
                 if (filteredMeals.length > 0) pickMeal(filteredMeals[0].id)
                 else if (query.trim()) startCreating()
               }}
-              className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800"
+              className="mb-2 w-full rounded-lg border border-gray-300 px-3 py-2 text-base md:text-sm dark:border-gray-700 dark:bg-gray-800"
             />
-            <div className="max-h-64 overflow-y-auto">
+            <div className="max-h-[50dvh] overflow-y-auto md:max-h-64">
               {filteredMeals.length === 0 && (
                 <div className="space-y-2 p-2 text-center">
                   <p className="text-sm text-gray-400 dark:text-gray-500">
@@ -203,7 +231,7 @@ export default function DayRow({
                   <button
                     type="button"
                     onClick={startCreating}
-                    className="w-full truncate rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
+                    className="w-full truncate rounded-lg bg-gray-900 px-3 py-2.5 text-sm font-medium text-white dark:bg-white dark:text-gray-900"
                   >
                     {query.trim() ? `Create “${query.trim()}”` : 'Create a meal'}
                   </button>
@@ -214,7 +242,7 @@ export default function DayRow({
                   key={meal.id}
                   type="button"
                   onClick={() => pickMeal(meal.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="flex w-full items-center gap-2 rounded-lg px-2 py-2.5 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <span className={`h-2.5 w-2.5 flex-shrink-0 rounded-full ${dotClasses(meal.visual.color)}`} />
                   {meal.visual.icon && <span className="text-base leading-none">{meal.visual.icon}</span>}
