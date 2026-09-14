@@ -3,21 +3,11 @@ import type { MealCategory } from '../types'
 import Icon from './Icon'
 
 /**
- * Sizes named for where the tile sits, since each carries its own phone and
- * desktop dimensions. Only the larger sizes have room for a secondary badge.
+ * Sizes named for where the tile sits: a meal card, at every width, or the
+ * header of a sheet. Both have room for the corner badge.
  */
 const SIZES = {
-  chip: {
-    box: 'h-7 w-7 rounded-lg md:h-6 md:w-6 md:rounded-[7px]',
-    icon: 'h-4 w-4 md:h-3.5 md:w-3.5',
-    badge: false,
-  },
-  row: { box: 'h-8 w-8 rounded-lg', icon: 'h-4.5 w-4.5', badge: false },
-  card: {
-    box: 'h-12 w-12 rounded-xl md:h-10 md:w-10 md:rounded-[11px]',
-    icon: 'h-6 w-6 md:h-5 md:w-5',
-    badge: true,
-  },
+  card: { box: 'h-12 w-12 rounded-xl', icon: 'h-6 w-6', badge: true },
   header: { box: 'h-10 w-10 rounded-[11px]', icon: 'h-5 w-5', badge: true },
 } as const
 

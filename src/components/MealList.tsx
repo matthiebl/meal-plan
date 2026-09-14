@@ -70,7 +70,7 @@ export default function MealList({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="shrink-0 px-4 pt-4 pb-3 md:px-3.5 md:pt-3.5">
+      <div className="shrink-0 px-4 pt-4 pb-3">
         {/* A title on a phone only: from `md` up the app header names the app,
             and the library needs no second heading beside the planner. */}
         <div className="mb-3 flex items-start justify-between gap-2 md:hidden">
@@ -84,8 +84,8 @@ export default function MealList({
         </div>
 
         <div className="flex gap-2">
-          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-surface-1 px-3 text-ink-3 focus-within:outline-2 focus-within:outline-accent md:rounded-[10px] md:px-2.5">
-            <Icon name="search" className="h-4.5 w-4.5 md:h-4 md:w-4" />
+          <label className="flex min-w-0 flex-1 items-center gap-2 rounded-xl bg-surface-1 px-3 text-ink-3 focus-within:outline-2 focus-within:outline-accent">
+            <Icon name="search" className="h-4.5 w-4.5" />
             {/* 16px on a phone: anything smaller makes iOS zoom the page in on focus. */}
             <input
               type="search"
@@ -93,7 +93,7 @@ export default function MealList({
               aria-label="Search meals"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 focus-visible:outline-none md:h-9 md:text-sm"
+              className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 focus-visible:outline-none md:text-[15px]"
             />
           </label>
           <button
@@ -101,7 +101,7 @@ export default function MealList({
             onClick={() => setDialogState({ open: true, meal: null })}
             aria-label="New meal"
             title="New meal"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary md:h-9 md:w-9 md:rounded-[10px]"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-on-primary"
           >
             <Icon name="plus" strokeWidth={2.2} />
           </button>
@@ -137,7 +137,7 @@ export default function MealList({
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4 md:space-y-1.75 md:px-3.5">
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto px-4 pb-4">
         {loading ? (
           <MealListSkeleton />
         ) : visible.length === 0 ? (
@@ -202,9 +202,9 @@ function MealListSkeleton() {
       {Array.from({ length: 6 }).map((_, i) => (
         <div
           key={i}
-          className="flex animate-pulse items-center gap-3 rounded-2xl bg-surface-1 p-2 md:rounded-xl"
+          className="flex animate-pulse items-center gap-3 rounded-2xl bg-surface-1 p-2"
         >
-          <div className="h-12 w-12 rounded-xl bg-line md:h-10 md:w-10" />
+          <div className="h-12 w-12 rounded-xl bg-line" />
           <div className="flex-1 space-y-2">
             <div className="h-3.5 w-28 rounded bg-line" />
             <div className="h-3 w-40 rounded bg-line" />

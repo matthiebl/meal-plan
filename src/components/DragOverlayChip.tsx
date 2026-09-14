@@ -1,5 +1,4 @@
 import type { DragData } from '../lib/dnd'
-import Icon from './Icon'
 import MealTile from './MealTile'
 
 type DragOverlayChipProps = {
@@ -13,21 +12,22 @@ export default function DragOverlayChip({ data }: DragOverlayChipProps) {
     (data.type === 'cook' && data.cook.kind === 'leftovers')
 
   return (
-    <div className="flex h-10 max-w-[20rem] cursor-grabbing items-center gap-2 rounded-xl bg-surface-3 p-1.25 pr-3.5 text-sm text-ink shadow-xl ring-1 ring-line">
+    <div className="flex w-92 cursor-grabbing items-center gap-3 rounded-2xl bg-surface-3 p-2 pr-4 text-ink shadow-xl ring-1 ring-line">
       <MealTile
         category={data.meal.category}
-        size="chip"
+        size="card"
         surface="surface-3"
+        leftovers={isLeftovers}
         className={isLeftovers ? 'opacity-70' : ''}
       />
-      {isLeftovers && (
-        <Icon
-          name="leftovers"
-          className="-mr-1 h-3.5 w-3.5 text-ink-2"
-          strokeWidth={2}
-        />
-      )}
-      <span className="truncate">{data.meal.name}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[15px] font-medium">
+          {data.meal.name}
+        </span>
+        <span className="mt-0.5 block truncate text-[13px] text-ink-2">
+          {isLeftovers ? 'Leftovers' : `Serves ${data.meal.servings}`}
+        </span>
+      </span>
     </div>
   )
 }

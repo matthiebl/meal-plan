@@ -27,12 +27,10 @@ export default function MealSummary({
       <MealTile category={meal.category} size="card" />
 
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-medium md:text-sm">
-          {meal.name}
-        </p>
+        <p className="truncate text-[15px] font-medium">{meal.name}</p>
         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
           <CategoryChips category={meal.category} />
-          <span className="truncate text-[13px] text-ink-2 md:text-xs">
+          <span className="truncate text-[13px] text-ink-2">
             Serves {meal.servings}
           </span>
         </div>
@@ -41,25 +39,25 @@ export default function MealSummary({
       <div className="shrink-0 pr-1 text-right">
         {headlineTimesCooked ? (
           <>
-            <p className="text-base leading-tight font-medium tabular-nums md:text-sm">
+            <p className="text-base leading-tight font-medium tabular-nums">
               {stats.timesCooked}×
             </p>
             <p className="text-[11px] text-ink-3">cooked</p>
           </>
         ) : stats.nextPlanned ? (
           <>
-            <p className="text-xs text-accent md:text-[11px]">Planned</p>
+            <p className="text-xs text-accent">Planned</p>
             <p className="text-[11px] text-ink-3">
               {formatNearDay(stats.nextPlanned)}
             </p>
           </>
         ) : stats.daysSince === null ? (
-          <p className="text-xs text-ink-3 md:text-[11px]">New</p>
+          <p className="text-xs text-ink-3">New</p>
         ) : stats.daysSince === 0 ? (
-          <p className="text-xs font-medium md:text-[11px]">Today</p>
+          <p className="text-xs font-medium">Today</p>
         ) : (
           <>
-            <p className="text-base leading-tight font-medium tabular-nums md:text-sm">
+            <p className="text-base leading-tight font-medium tabular-nums">
               {stats.daysSince}
             </p>
             <p className="text-[11px] text-ink-3">
@@ -72,8 +70,11 @@ export default function MealSummary({
   )
 }
 
-/** The card surface around a MealSummary; planned meals carry an accent outline. */
+/**
+ * The card surface around a MealSummary, the same size at every width;
+ * planned meals carry an accent outline.
+ */
 export const MEAL_CARD_CLASSES =
-  'flex w-full items-center gap-3 rounded-2xl bg-surface-1 p-2 text-left md:gap-2.5 md:rounded-xl md:p-1.75'
+  'flex w-full items-center gap-3 rounded-2xl bg-surface-1 p-2 text-left'
 
 export const PLANNED_OUTLINE = 'shadow-[inset_0_0_0_1.5px_var(--color-accent)]'

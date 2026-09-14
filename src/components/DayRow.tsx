@@ -37,10 +37,11 @@ type DayRowProps = {
 
 /**
  * One day in the week view, and its own droppable, so an empty day still
- * accepts drops. From `md` up it is a band: the date, the day's cooks side by
- * side, and the space they have not filled as the day's add button. On a
- * phone it is a section of a scrolling list: the date as a heading, and the
- * day's cooks as full-width cards beneath it. See PLAN.md §6.
+ * accepts drops. Its cooks are the same cards at every width. From `md` up the
+ * day is a band: the date, the cards side by side, and the space they have
+ * not filled as the day's add button. On a phone it is a section of a
+ * scrolling list: the date as a heading, and the cards full-width beneath
+ * it. See PLAN.md §6.
  */
 export default function DayRow({
   date,
@@ -141,7 +142,7 @@ export default function DayRow({
       onClose={closePicker}
       anchorRef={dayLabelRef}
       className={className}
-      panelClassName="w-80"
+      panelClassName="w-96"
       sheetTitle={`Add to ${format(date, 'EEE d')}`}
       sheetSubtitle="Longest since cooked first"
       trigger={trigger}
@@ -149,7 +150,7 @@ export default function DayRow({
       {/* Not focused on a phone: the library is a list to point at, and
           a keyboard sliding up over it is the opposite of the gesture. */}
       <label className="mb-2.5 flex items-center gap-2 rounded-xl bg-surface-1 px-3 text-ink-3 focus-within:outline-2 focus-within:outline-accent">
-        <Icon name="search" className="h-4.5 w-4.5 md:h-4 md:w-4" />
+        <Icon name="search" className="h-4.5 w-4.5" />
         <input
           type="search"
           autoFocus={!isMobile}
@@ -162,10 +163,10 @@ export default function DayRow({
             if (pickableMeals.length > 0) pickMeal(pickableMeals[0].id)
             else if (query.trim()) startCreating()
           }}
-          className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 focus-visible:outline-none md:h-9 md:text-sm"
+          className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink outline-none placeholder:text-ink-3 focus-visible:outline-none md:text-[15px]"
         />
       </label>
-      <div className="max-h-[55dvh] space-y-2 overflow-y-auto md:max-h-80 md:space-y-1.5">
+      <div className="max-h-[55dvh] space-y-2 overflow-y-auto md:max-h-[26rem]">
         {pickableMeals.length === 0 && (
           <p className="px-1 py-2 text-center text-sm text-ink-3">
             {activeMeals.length === 0
@@ -189,7 +190,7 @@ export default function DayRow({
         <button
           type="button"
           onClick={startCreating}
-          className="flex w-full items-center gap-2.5 rounded-2xl border border-dashed border-line-strong p-3.5 text-left text-sm text-ink-3 hover:text-ink-2 md:rounded-xl md:p-2.5"
+          className="flex w-full items-center gap-2.5 rounded-2xl border border-dashed border-line-strong p-3.5 text-left text-sm text-ink-3 hover:text-ink-2"
         >
           <Icon name="plus" className="h-4.5 w-4.5" />
           <span className="truncate">
@@ -275,7 +276,7 @@ export default function DayRow({
   return (
     <div
       ref={setDropRef}
-      className={`flex min-h-13 flex-1 items-center gap-2.5 border-b px-2 py-1.25 transition-colors ${
+      className={`flex min-h-20 flex-1 items-center gap-3 border-b px-3 py-2 transition-colors ${
         today ? 'rounded-xl border-transparent bg-accent-soft' : 'border-line'
       } ${isOver ? 'ring-2 ring-accent ring-inset' : ''}`}
     >
@@ -287,7 +288,7 @@ export default function DayRow({
           type="button"
           onClick={togglePicker}
           aria-label={`Add a meal on ${fullDate}`}
-          className={`rounded text-left text-xs tabular-nums ${
+          className={`rounded text-left text-[13px] leading-tight tabular-nums ${
             today
               ? 'font-medium text-accent'
               : past
@@ -295,27 +296,28 @@ export default function DayRow({
                 : 'text-ink-3'
           }`}
         >
+          {today && <span className="block text-xs">Today</span>}
           {dayLabel}
         </button>
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-wrap content-start items-start gap-1.5">
+      <div className="flex min-w-0 flex-1 flex-wrap content-start items-start gap-2">
         {chips}
         {picker(
           <button
             type="button"
             onClick={togglePicker}
             aria-label={`Add a meal on ${fullDate}`}
-            className={`flex h-full w-full items-center gap-1.5 rounded-[10px] border border-dashed px-2.5 text-xs transition-colors ${
+            className={`flex h-full w-full items-center gap-2.5 rounded-2xl border border-dashed px-4 text-sm transition-colors ${
               cooks.length === 0
                 ? 'border-line-strong text-ink-3 hover:text-ink-2'
                 : 'border-transparent text-transparent hover:border-line-strong hover:text-ink-3 focus-visible:text-ink-3'
             }`}
           >
-            <Icon name="plus" className="h-3.5 w-3.5" strokeWidth={2} />
-            {cooks.length === 0 ? 'Drop a meal here' : 'Add'}
+            <Icon name="plus" className="h-4.5 w-4.5" />
+            {cooks.length === 0 ? 'Add a meal, or drop one here' : 'Add'}
           </button>,
-          `relative h-9 flex-1 ${cooks.length === 0 ? 'min-w-[7rem]' : 'min-w-10'}`,
+          `relative h-16 flex-1 ${cooks.length === 0 ? 'min-w-48' : 'min-w-12'}`,
         )}
       </div>
 

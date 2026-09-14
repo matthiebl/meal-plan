@@ -173,7 +173,7 @@ function Shell({
       >
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <aside
-            className={`w-full min-w-0 overflow-hidden border-line md:block md:w-80 md:shrink-0 md:border-r lg:w-88 ${
+            className={`w-full min-w-0 overflow-hidden border-line md:block md:w-88 md:shrink-0 md:border-r lg:w-96 ${
               tab === 'meals' ? 'block' : 'hidden'
             }`}
           >

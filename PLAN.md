@@ -163,7 +163,7 @@ Every appearance of a meal derives from its category, identically wherever the m
 appears:
 
 - **Tile** — the meal's image. The main category's icon on that category's tint. Where
-  the tile is large enough (meal card, sheet header, editor preview), the secondary
+  the tile carries one (meal card, sheet header, editor preview), the secondary
   category is a small round badge in its bottom-right corner, ringed in the colour of the
   surface beneath so it reads as cut out of the tile. Tints are opaque in both themes so
   the badge never blends into the tile.
@@ -175,9 +175,10 @@ appears:
 An uncategorised meal has a neutral tile with a plate icon, no chips, and a grey mark.
 
 **Leftovers styling is derived, never chosen.** A `leftovers` cook renders outlined rather
-than filled, with its tile dimmed and its name in secondary text. The return-arrow marks
-it: before the name on a compact chip, and in place of the secondary badge on a tile large
-enough to carry one. This treatment is fixed so leftovers are recognisable by construction.
+than filled, with its tile dimmed and its name in secondary text, and a return-arrow in
+place of the tile's secondary badge — before the name where a mark stands in for the tile,
+as in the month view. This treatment is fixed so leftovers are recognisable by
+construction.
 
 ## 6. Layout and interaction
 
@@ -256,23 +257,25 @@ and only once the planner has moved away from the current week or month.
 
 - Saturday through to the following Saturday inclusive — eight days. There is no limit on
   cooks per day.
-- **From `md` up, each day is a horizontal band**: its date, its cooks side by side as
-  compact chips (the meal's tile and name, on `surface-1`), and a shop-marker slot at the
-  right. The band grows as cooks are added.
+- **Every cook is a card, the same size at every width**: the meal's tile (with its
+  secondary badge), its name, and a second line — `Serves n ·` and the cook's detail from
+  §4 — with the leftovers tab at its right. A leftovers card's second line is its detail
+  alone. A desktop screen has more room than a phone, so a meal never gets less of it
+  there.
+- **From `md` up, each day is a horizontal band**: its date, its cook cards side by side
+  at a fixed width, and a shop-marker slot at the right. The band grows, wrapping onto
+  further lines, as cooks are added.
   - The eight rows share the pane's height, growing past an equal share only when a day
     fills up. They do not bunch at the top of a tall window, and each row's contents sit
     vertically centred in its band.
   - The width a day's cooks have not filled is that day's add button, so spare room reads
-    as somewhere to drop a meal rather than as emptiness. On an empty day it is a dashed
-    outline, "Drop a meal here"; beside cooks it is invisible until hovered.
-  - Today's row is tinted `accent-soft` with its date in accent, and its chips take
-    `surface-2` so they stand off the tint.
-- **Below `md`, the week is a scrolling list of days**, each a heading over its cooks as
-  full-width cards. A phone's width goes to the meal rather than to a date column, and a
-  card has room to say something about the meal.
-  - A cook card is the meal's tile (with its secondary badge), its name, and a second
-    line: `Serves n ·` and the cook's detail from §4. A leftovers card's second line is its
-    detail alone.
+    as somewhere to drop a meal rather than as emptiness. It is a card's height. On an
+    empty day it is a dashed outline, "Add a meal, or drop one here"; beside cooks it is
+    invisible until hovered.
+  - Today's row is tinted `accent-soft` with "Today" above its date in accent, and its
+    cards take `surface-2` so they stand off the tint.
+- **Below `md`, the week is a scrolling list of days**, each a heading over its cook cards
+  at full width. A phone's width goes to the meal rather than to a date column.
   - The day heading is the date — `Today · Mon 14` in accent for today — with the shop
     marker and, once the day has cooks, a `+` at its right. An empty day is a large dashed
     "Add a meal" card.
@@ -312,19 +315,19 @@ One `DndContext` wraps both panes. Four gestures:
 | Drag handle | From → to | Effect |
 |---|---|---|
 | Meal card | left pane → a day | create a `cook` at the drop index |
-| Cook chip | within its own day | reindex `order` |
-| Cook chip | one day → another day | update `date`, insert at drop index, reindex both days |
-| Leftovers tab on a cook chip | → a day | create a `leftovers` cook with `fromCookId` set |
+| Cook card | within its own day | reindex `order` |
+| Cook card | one day → another day | update `date`, insert at drop index, reindex both days |
+| Leftovers tab on a cook card | → a day | create a `leftovers` cook with `fromCookId` set |
 
 Requirements:
 
-- The leftovers gesture is an **explicit small grab-tab on the cook chip** — a
-  return-arrow at the right end of a `cook` chip or card (leftovers do not carry one) — not
-  a modifier drag. It must be discoverable without instruction and must work on touch. Dragging the
+- The leftovers gesture is an **explicit small grab-tab on the cook card** — a
+  return-arrow at the right end of a `cook` card (leftovers do not carry one) — not a
+  modifier drag. It must be discoverable without instruction and must work on touch. Dragging the
   tab places leftovers on any day; clicking it adds them to the next day, which is the
   answer nearly every time.
 - Every day row is its own droppable, so empty days accept drops.
-- A `DragOverlay` renders the floating chip.
+- A `DragOverlay` renders the floating card.
 - Reordering and moving between days must feel immediate, because re-planning mid-week is
   the common case.
 - There is no hand-rolled optimistic state. Firestore applies local writes to `onSnapshot`
@@ -334,39 +337,39 @@ Requirements:
   open or a button disabled long after the change is on screen. Mutations issue the write
   and return; failures are logged.
 - Every drag gesture has a click/keyboard equivalent: each day row's add button adds a
-  cook, and cook chips can be moved and deleted without dragging. Drag is never the only
+  cook, and cook cards can be moved and deleted without dragging. Drag is never the only
   path.
 - The day row's meal picker is a search field over the library as meal cards — the same
-  cards as the left pane, **sorted longest since cooked first**, planned meals outlined —
+  full-size cards as the left pane, **sorted longest since cooked first**, planned meals outlined —
   ending in a dashed "New meal" card (`Create "…"` while a search is typed). As a sheet it
   is titled `Add to Tue 15`, with "Longest since cooked first" beneath. Like the library's,
   a search that matches nothing offers to create that meal with the name prefilled. The
   new meal is planned on that day as well as added to the library — planning it is why it
   was searched for.
-- **Clicking a cook chip opens its menu**, so the chip is a tap target before it is a drag
+- **Clicking a cook card opens its menu**, so the card is a tap target before it is a drag
   handle; there is no separate menu button. The menu offers **move to** and **add
   leftovers to** as strips of the week's eight days — a small calendar to point at, never
-  a list of day names to read down. In the move strip the chip's own day is filled and
-  not pickable. In the leftovers strip the chip's day and every day before it are
+  a list of day names to read down. In the move strip the card's own day is filled and
+  not pickable. In the leftovers strip the card's day and every day before it are
   disabled, and the next day is tinted as the likeliest pick. Below the strips, the menu
-  reorders the chip earlier or later within its day (when the day has another cook) and
+  reorders the card earlier or later within its day (when the day has another cook) and
   removes it.
 - Drag handles allow vertical panning rather than suppressing touch outright. Chips and
   meal cards cover most of both panes, and a finger landing on one has to be able to
   scroll. The touch sensor starts on a hold, so a swipe scrolls and a hold still drags.
   The leftovers tab is the exception: it is small and precise, and claims the gesture.
-- A cook chip's menu and a day's meal picker flip above or right-align themselves when
+- A cook card's menu and a day's meal picker flip above or right-align themselves when
   there is no room below. Both panes scroll, so a panel that always opened downwards
   would be clipped. Below `md` these panels are **bottom sheets** instead — reachable by
   thumb, and never squeezed against an edge. Every sheet has the same header: the tile of
   the meal it acts on where there is one, a title, a subtitle (the day, or the meal's
-  history), and a close button. A sheet is portalled to the body: a dragging chip carries
+  history), and a close button. A sheet is portalled to the body: a dragging card carries
   a transform, and a `fixed` descendant of a transformed element positions against that
   element rather than the viewport.
 - The meal picker's search field is not focused when it opens on a phone. The library is
   a list to point at, and a keyboard sliding up over it is the opposite of that gesture.
-- An open panel, **and the chip that owns it**, are raised above the rest of the planner.
-  A cook chip carries a drag transform, which makes it a stacking context, so a z-index
+- An open panel, **and the card that owns it**, are raised above the rest of the planner.
+  A cook card carries a drag transform, which makes it a stacking context, so a z-index
   on the panel alone cannot lift it over later rows — whose own add buttons are
   positioned, and would otherwise paint straight through the open panel.
 - Removing a cook, and adding leftovers to a day, are undoable: a toast names what
