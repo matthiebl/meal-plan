@@ -52,4 +52,8 @@ npm run lint      # eslint
   derived is denormalized onto a meal document. See PLAN.md §4.
 - Colour and fill come from the closed token sets in PLAN.md §5. Do not introduce ad-hoc
   colours or a free colour picker.
+- Units and aisles are closed sets too, in PLAN.md §3. A unit is tapped, never typed, and
+  amounts only combine within their own family.
+- Ingredient lists and method never go on a meal document. They live in `recipes/{mealId}`,
+  which is fetched on demand and never subscribed to in full. See PLAN.md §3 and §10.
 - Every drag gesture needs a click or keyboard equivalent. See PLAN.md §6.
