@@ -28,6 +28,20 @@ service cloud.firestore {
           || (isCategory(category.secondary) && category.secondary != category.main));
     }
 
+    function isUnit(value) {
+      return value in [
+        'g', 'kg', 'ml', 'L', 'tsp', 'tbsp', 'cup',
+        'each', 'clove', 'bunch', 'sprig', 'can', 'packet', 'slice', 'some'
+      ];
+    }
+
+    function isAisle(value) {
+      return value in [
+        'produce', 'meat', 'dairy', 'bakery', 'pantry', 'frozen', 'drinks',
+        'household', 'other'
+      ];
+    }
+
     // meals/{mealId}
     match /meals/{mealId} {
       allow read: if isSignedIn();
@@ -65,6 +79,38 @@ service cloud.firestore {
       allow create, update: if isSignedIn()
         && request.resource.data.keys().hasAll(['shopDate'])
         && isISODate(request.resource.data.shopDate);
+      allow delete: if false;
+    }
+
+    // ingredients/{ingredientId}
+    match /ingredients/{ingredientId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && (!('aisle' in request.resource.data) || isAisle(request.resource.data.aisle))
+        && (!('defaultUnit' in request.resource.data) || isUnit(request.resource.data.defaultUnit))
+        && request.resource.data.createdAt is timestamp;
+      // Ingredients are never deleted and never archived: a recipe may
+      // reference any of them, and an unused one costs nothing.
+      allow delete: if false;
+    }
+
+    // recipes/{mealId}
+    match /recipes/{mealId} {
+      allow read: if isSignedIn();
+      // Rules cannot iterate a list's contents, so `items` is checked for
+      // type and size only; the shape of each item is the frontend's to
+      // hold. See PLAN.md §7.
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['items', 'updatedAt'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 200
+        && request.resource.data.updatedAt is timestamp;
+      // A recipe emptied of ingredients keeps an empty `items`; the document
+      // is not deleted, so the shopping list can name the meal as having
+      // none.
       allow delete: if false;
     }
   }

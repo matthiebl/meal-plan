@@ -20,9 +20,10 @@ import {
 import { EMPTY_STATS } from '../lib/mealSort'
 import { cookDetails, cooksOnDate } from '../lib/planner'
 import { useIsMobile } from '../lib/responsive'
-import type { Cook, Meal } from '../types'
+import type { Cook, Ingredient, Meal } from '../types'
 import DayRow from './DayRow'
 import Icon from './Icon'
+import RecipeSheet from './RecipeSheet'
 
 const UNDO_WINDOW_MS = 6000
 
@@ -30,6 +31,7 @@ type WeekViewProps = {
   saturday: Date
   meals: Meal[]
   cooks: Cook[]
+  ingredients: Ingredient[]
 }
 
 /** A message with an optional undo, shown briefly at the foot of the pane. */
@@ -40,7 +42,12 @@ type Toast = { message: string; undo?: () => void }
  * rows sharing the pane's height; on a phone they are a scrolling list, with
  * the current week's days before today folded away. See PLAN.md §6.
  */
-export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
+export default function WeekView({
+  saturday,
+  meals,
+  cooks,
+  ingredients,
+}: WeekViewProps) {
   const isMobile = useIsMobile()
   const mealsById = useMemo(
     () => new Map(meals.map(meal => [meal.id, meal])),
@@ -116,6 +123,12 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
   // undo for a few seconds. See PLAN.md §6.
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimeoutRef = useRef<number | undefined>(undefined)
+
+  // The recipe sheet, reached from the meal card's and cook card's menus.
+  // See PLAN.md §6.
+  const [recipeSheetMealId, setRecipeSheetMealId] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => () => window.clearTimeout(toastTimeoutRef.current), [])
 
@@ -241,11 +254,24 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
                 onMoveCookToDay={handleMoveCookToDay}
                 onAddLeftovers={handleAddLeftovers}
                 onQuickLeftovers={handleQuickLeftovers}
+                onIngredients={setRecipeSheetMealId}
               />
             )
           })}
         </div>
       </div>
+
+      {recipeSheetMealId &&
+        (() => {
+          const meal = mealsById.get(recipeSheetMealId)
+          return meal ? (
+            <RecipeSheet
+              meal={meal}
+              ingredients={ingredients}
+              onClose={() => setRecipeSheetMealId(null)}
+            />
+          ) : null
+        })()}
 
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4">

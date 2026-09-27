@@ -1,17 +1,20 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { addCook } from '../data/mutations'
 import { useMealStats } from '../data/useMealStats'
+import { matchesName } from '../lib/ingredients'
 import { EMPTY_STATS, sortMeals, type SortKey } from '../lib/mealSort'
 import { cooksOnDate } from '../lib/planner'
 import { usePlannerRoute } from '../lib/plannerRoute'
-import type { Cook, Meal } from '../types'
+import type { Cook, Ingredient, Meal } from '../types'
 import Icon from './Icon'
 import MealCard from './MealCard'
 import MealDialog from './MealDialog'
+import RecipeSheet from './RecipeSheet'
 
 type MealListProps = {
   meals: Meal[]
   cooks: Cook[]
+  ingredients: Ingredient[]
   loading: boolean
   /** Sits at the right of the phone's title row — the theme toggle. */
   headerAction?: ReactNode
@@ -27,6 +30,7 @@ const SORT_LABELS: Record<SortKey, string> = {
 export default function MealList({
   meals,
   cooks,
+  ingredients,
   loading,
   headerAction,
 }: MealListProps) {
@@ -38,6 +42,7 @@ export default function MealList({
     /** Prefills the name when a search turned nothing up. */
     initialName?: string
   }>({ open: false, meal: null })
+  const [recipeSheetMeal, setRecipeSheetMeal] = useState<Meal | null>(null)
 
   const statsByMealId = useMealStats(cooks)
   const statsFor = useCallback(
@@ -61,10 +66,7 @@ export default function MealList({
   }
 
   const visible = useMemo(() => {
-    const query = search.trim().toLowerCase()
-    const filtered = query
-      ? active.filter(meal => meal.name.toLowerCase().includes(query))
-      : active
+    const filtered = active.filter(meal => matchesName(meal.name, search))
     return sortMeals(filtered, statsFor, sortKey)
   }, [active, search, sortKey, statsFor])
 
@@ -179,6 +181,7 @@ export default function MealList({
               headlineTimesCooked={sortKey === 'timesCooked'}
               onPlan={iso => planMeal(meal.id, iso)}
               onEdit={() => setDialogState({ open: true, meal })}
+              onIngredients={() => setRecipeSheetMeal(meal)}
             />
           ))
         )}
@@ -189,6 +192,14 @@ export default function MealList({
           meal={dialogState.meal}
           initialName={dialogState.initialName}
           onClose={() => setDialogState({ open: false, meal: null })}
+        />
+      )}
+
+      {recipeSheetMeal && (
+        <RecipeSheet
+          meal={recipeSheetMeal}
+          ingredients={ingredients}
+          onClose={() => setRecipeSheetMeal(null)}
         />
       )}
     </div>

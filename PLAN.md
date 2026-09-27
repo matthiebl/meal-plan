@@ -94,7 +94,7 @@ type Recipe = {
 
 type RecipeItem = {
   ingredientId: string
-  amount: number            // > 0
+  amount: number            // > 0; a `some` row stores 1 and hides the field — see below
   unit: Unit                // see Quantities and aisles
   note?: string             // 'minced', 'finely sliced' — how it is prepared
 }
@@ -129,6 +129,9 @@ Requirements on this model:
   them, and an unused one costs nothing: it simply stops appearing until searched for.
 - **A recipe's quantities are as entered, for the meal's stated `servings`.** Planning a
   meal does not scale them.
+- **An ingredient's own name and aisle are corrected from the ingredient picker's search
+  results**, which carry a pencil beside each row, separate from the row's main target.
+  Renaming an ingredient renames it everywhere it is used.
 - **A shopping-list item is `toGet`, `got`, or `have`.** `got` means it went in the
   trolley; `have` means it was already in the cupboard and was not bought. Both read as
   done while shopping, but they are different facts: kept apart, they are what says how
@@ -149,14 +152,15 @@ ingredient are two lines under one heading — rare, and honest when it happens.
 | Mass | `g`, `kg` | g | g below 1000, else kg |
 | Volume | `ml`, `L` | ml | ml below 1000, else L |
 | Kitchen measure | `tsp`, `tbsp`, `cup` | tsp | tsp below 4, tbsp below 50, else cup. 1 tbsp = 4 tsp and 1 cup = 50 tsp, the Australian metric spoon |
-| Count | `each`, `clove`, `bunch`, `sprig`, `can`, `packet`, `slice` | itself; these never convert | the number and the unit, except `each`, which is the number alone |
+| Count | `each`, `clove`, `bunch`, `sprig`, `can`, `packet`, `slice` | itself; these never convert | the number and the unit, pluralised, except `each`, which is the number alone |
 | Unmeasured | `some` | — | `as needed`, and dropped entirely where the same ingredient also carries a measured amount |
 
 Amounts render to at most one decimal, and never as a fraction.
 
 Aisles are a closed set too, ordered as a supermarket is walked, which is the order the
-shopping list takes: `produce`, `meat & fish`, `dairy & eggs`, `bakery`, `pantry`,
-`frozen`, `drinks`, `household`, `other`.
+shopping list takes: `produce`, `meat`, `dairy`, `bakery`, `pantry`, `frozen`, `drinks`,
+`household`, `other` — labelled "Meat & fish" and "Dairy & eggs" where the id alone would
+read as narrower than the aisle is.
 
 ### Reads
 
@@ -166,8 +170,9 @@ and the ingredient table is smaller still. If volume ever makes this unreasonabl
 escape hatch is a `where('date', '>=', bound)` query on `cooks` plus denormalized per-meal
 stats — not a backend.
 
-**`recipes` is never subscribed to in full.** A recipe is fetched when its sheet opens,
-and a week's recipes are fetched together for its shopping list, chunked at thirty ids per
+**`recipes` is never subscribed to in full.** A single recipe is subscribed for as long
+as its sheet — or the menu counting its ingredients — is open, and a week's recipes are
+fetched together for its shopping list, chunked at thirty ids per
 `where(documentId(), 'in', …)` query. Recipes are the one collection that grows with what
 is written in them rather than with how often the app is used.
 
@@ -411,11 +416,14 @@ removal writes immediately, as everything in the planner does.
 **Adding or editing a row opens the ingredient picker**: a search over the ingredient
 table with the matches as rows, ending in `Create "…"` where nothing matches — the same
 shape as the meal library's and the day's picker. Choosing an ingredient moves the sheet
-to the amount: a numeric field, the unit as chips of that ingredient's family preselected
-from its `defaultUnit`, and the note. Saving records that unit as the ingredient's
+to the amount: a numeric field, the unit as chips of every unit grouped by family in the
+order of §3's table, the selected unit's family first, and the note. The `defaultUnit` is
+preselected where the ingredient has one. Saving records the unit used as the ingredient's
 `defaultUnit`, so the second time it is added nothing needs tapping. Creating an
 ingredient asks for its aisle in the same step, which is the one moment it is worth
-asking.
+asking. **Editing an existing row's amount step carries a Remove row at its foot**, in
+the same danger styling as an editor's other destructive rows, rather than a `×` crowding
+every row or a swipe with no keyboard equivalent.
 
 ### The shopping list
 
@@ -559,6 +567,7 @@ src/
     plannerRoute.ts      # usePlannerRoute: the displayed week or month, and moves
     dnd.ts               # drag id helpers, DragData/DropData payload types
     responsive.ts        # useIsMobile, for the cases where markup differs, not just CSS
+    menuStyles.ts         # shared class strings for a popover menu's action rows
     units.ts             # the unit set and its families, base conversion, formatting
     ingredients.ts       # the aisle set in walk order, and name matching for search
     shopping.ts          # the shop window, and the §4 list built from cooks + recipes
@@ -593,10 +602,16 @@ src/
                          # is placed on a day without dragging it there
     RecipeSheet.tsx      # a meal's ingredients
     IngredientPicker.tsx # ingredient search and creation, then amount, unit and note
+    IngredientEditor.tsx # an existing ingredient's own name and aisle
+    IngredientsMenuRow.tsx # the `Ingredients · n` row shared by both menus
+    AisleChips.tsx        # the aisle set as a chip row
     ShoppingList.tsx     # the week's list: aisles, item states, extras
     Popover.tsx          # anchored panel that flips to stay on screen, and is a
                          # bottom sheet below md: the day picker, the cook chip
                          # menu, the meal card menu
+    Sheet.tsx             # bottom sheet below md, centred dialog above it: the
+                         # recipe sheet, the ingredient picker, the shopping list
+    SheetHeader.tsx        # the standard header every sheet carries
   App.tsx                # shell with header and tab bar, routes, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme interface palette
@@ -628,7 +643,7 @@ Phases 1–4 are the planner; 9–10 are the shopping list. Update these boxes a
       interface palette tokens; toolbar in the desktop header; pane headers on a phone;
       sort pills; phone month bars; the phone week as a list of cook cards with earlier
       days folded; the picker as sorted cards.
-- [ ] **9. Ingredients and recipes** — the `ingredients` and `recipes` collections and
+- [x] **9. Ingredients and recipes** — the `ingredients` and `recipes` collections and
       their rules; `lib/units.ts` and the aisle set; `useIngredients` and `useRecipes`;
       the recipe sheet from the meal card's and cook card's menus; the ingredient picker,
       creating what it cannot find. *Checkpoint: every meal can carry its ingredients.*

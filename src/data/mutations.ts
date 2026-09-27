@@ -9,7 +9,14 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Cook, CookKind, MealCategory } from '../types'
+import type {
+  Aisle,
+  Cook,
+  CookKind,
+  MealCategory,
+  RecipeItem,
+  Unit,
+} from '../types'
 
 /**
  * Firestore applies a local write to `onSnapshot` immediately, so nothing in
@@ -177,4 +184,82 @@ export function restoreCook(cook: Cook): void {
 /** Sets a week's shop day — its own Saturday, or the Sunday right after. */
 export function setShopDate(saturdayISO: string, shopDate: string): void {
   fire(setDoc(doc(db, 'weeks', saturdayISO), { shopDate }))
+}
+
+export type NewIngredient = {
+  name: string
+  aisle: Aisle | undefined
+  defaultUnit: Unit | undefined
+}
+
+/**
+ * Creates an ingredient, returning its id immediately so the recipe row that
+ * asked for it can be written in the same gesture. Firestore rejects
+ * `undefined`, so an unset aisle or unit is left out entirely.
+ */
+export function addIngredient({
+  name,
+  aisle,
+  defaultUnit,
+}: NewIngredient): string {
+  const ref = doc(collection(db, 'ingredients'))
+  fire(
+    setDoc(ref, {
+      name,
+      ...(aisle ? { aisle } : {}),
+      ...(defaultUnit ? { defaultUnit } : {}),
+      createdAt: serverTimestamp(),
+    }),
+  )
+  return ref.id
+}
+
+export type IngredientPatch = {
+  name?: string
+  /** `null` clears a stored aisle, which then reads as 'other'. */
+  aisle?: Aisle | null
+  /** `null` clears a stored default unit. */
+  defaultUnit?: Unit | null
+}
+
+/**
+ * Saves whichever of an ingredient's fields are named. A partial patch rather
+ * than a whole-document save, because two call sites are independent: the
+ * picker renames an ingredient or moves its aisle, and saving a recipe row
+ * records the unit it used as the ingredient's `defaultUnit` so the second
+ * time it is added nothing needs tapping. See PLAN.md §6.
+ */
+export function updateIngredient(
+  ingredientId: string,
+  patch: IngredientPatch,
+): void {
+  const data: Record<string, unknown> = {}
+  if (patch.name !== undefined) data.name = patch.name
+  if (patch.aisle !== undefined) data.aisle = patch.aisle ?? deleteField()
+  if (patch.defaultUnit !== undefined) {
+    data.defaultUnit = patch.defaultUnit ?? deleteField()
+  }
+  fire(updateDoc(doc(db, 'ingredients', ingredientId), data))
+}
+
+/** Firestore rejects `undefined`, so a row with no note is written without the key. */
+function recipeItemData({ ingredientId, amount, unit, note }: RecipeItem): RecipeItem {
+  return { ingredientId, amount, unit, ...(note ? { note } : {}) }
+}
+
+/**
+ * Replaces a meal's recipe items — every addition, edit, reorder and removal
+ * on the recipe sheet, which has no Save button. Merged, so the document is
+ * created by its first ingredient and so a future `method` field survives an
+ * ingredient edit. A recipe emptied of items keeps an empty `items` rather
+ * than being deleted. See PLAN.md §6 and §10.
+ */
+export function setRecipeItems(mealId: string, items: RecipeItem[]): void {
+  fire(
+    setDoc(
+      doc(db, 'recipes', mealId),
+      { items: items.map(recipeItemData), updatedAt: serverTimestamp() },
+      { merge: true },
+    ),
+  )
 }

@@ -4,6 +4,7 @@ import { format } from 'date-fns'
 import { useMemo, useRef, useState, type ReactNode } from 'react'
 import { isToday, todayISODate, toISODate } from '../lib/dates'
 import { cookDragId, dayDropId } from '../lib/dnd'
+import { matchesName } from '../lib/ingredients'
 import { sortMeals } from '../lib/mealSort'
 import { useIsMobile } from '../lib/responsive'
 import type { Cook, Meal, MealStats } from '../types'
@@ -33,6 +34,7 @@ type DayRowProps = {
   onMoveCookToDay: (cookId: string, date: string) => void
   onAddLeftovers: (cook: Cook, date: string) => void
   onQuickLeftovers: (cook: Cook) => void
+  onIngredients: (mealId: string) => void
 }
 
 /**
@@ -59,6 +61,7 @@ export default function DayRow({
   onMoveCookToDay,
   onAddLeftovers,
   onQuickLeftovers,
+  onIngredients,
 }: DayRowProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -80,10 +83,7 @@ export default function DayRow({
   // Longest since cooked first: the picker's question is what to have, and
   // the library's default sort already answers it.
   const pickableMeals = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const matching = q
-      ? activeMeals.filter(meal => meal.name.toLowerCase().includes(q))
-      : activeMeals
+    const matching = activeMeals.filter(meal => matchesName(meal.name, query))
     return sortMeals(matching, statsFor, 'daysSince')
   }, [activeMeals, query, statsFor])
 
@@ -130,6 +130,7 @@ export default function DayRow({
             onMoveToDay={toDate => onMoveCookToDay(cook.id, toDate)}
             onAddLeftovers={toDate => onAddLeftovers(cook, toDate)}
             onQuickLeftovers={() => onQuickLeftovers(cook)}
+            onIngredients={() => onIngredients(cook.mealId)}
           />
         )
       })}
