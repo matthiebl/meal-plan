@@ -14,7 +14,7 @@ import MealDialog from './MealDialog'
 import MealSummary, { MEAL_CARD_CLASSES, PLANNED_OUTLINE } from './MealSummary'
 import Popover from './Popover'
 
-type ShopDay = { active: boolean; onSet: () => void }
+export type ShopDay = { active: boolean; onSet: () => void; onOpen: () => void }
 
 type DayRowProps = {
   date: Date
@@ -341,11 +341,9 @@ function ShopMarker({ shopDay }: { shopDay: ShopDay }) {
   return (
     <button
       type="button"
-      onClick={shopDay.onSet}
-      disabled={shopDay.active}
-      aria-pressed={shopDay.active}
-      aria-label={shopDay.active ? 'Shop day' : 'Move shop day here'}
-      title={shopDay.active ? 'Shop day' : 'Move shop day here'}
+      onClick={shopDay.active ? shopDay.onOpen : shopDay.onSet}
+      aria-label={shopDay.active ? 'Open shopping list' : 'Move shop day here'}
+      title={shopDay.active ? 'Open shopping list' : 'Move shop day here'}
       className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-xs md:h-6 md:px-1 md:text-[11px] ${
         shopDay.active ? 'text-ink-2' : 'text-ink-3/40 hover:text-ink-3'
       }`}

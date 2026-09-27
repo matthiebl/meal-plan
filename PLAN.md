@@ -145,7 +145,7 @@ Requirements on this model:
 
 Units are a closed set, tapped rather than typed. Each belongs to a family; amounts sum
 within a family and render in that family's most readable unit. Two families of one
-ingredient are two lines under one heading — rare, and honest when it happens.
+ingredient are two amounts against one name — rare, and honest when it happens.
 
 | Family | Units | Base | Rendered as |
 |---|---|---|---|
@@ -172,9 +172,11 @@ stats — not a backend.
 
 **`recipes` is never subscribed to in full.** A single recipe is subscribed for as long
 as its sheet — or the menu counting its ingredients — is open, and a week's recipes are
-fetched together for its shopping list, chunked at thirty ids per
-`where(documentId(), 'in', …)` query. Recipes are the one collection that grows with what
-is written in them rather than with how often the app is used.
+subscribed together for its shopping list, chunked at thirty ids per
+`where(documentId(), 'in', …)` query, so an ingredient added from the list's own
+"no ingredients" entry point lands on the list without a refresh. Recipes are the one
+collection that grows with what is written in them rather than with how often the app is
+used.
 
 ## 4. Derived statistics
 
@@ -215,7 +217,8 @@ recipes, exactly as the statistics above are. Nothing about it is denormalized.
   were bought for once already. A meal cooked twice in the window counts twice.
 - **The items** are those cooks' recipe items, each converted to its family's base unit,
   multiplied by the number of times that meal is cooked in the window, summed per
-  ingredient and family, and grouped by the ingredient's aisle.
+  ingredient and family, and grouped by the ingredient's aisle. Within an aisle, items are
+  alphabetical: the order must not shift as amounts change or as items are ticked off.
 - **Meals in the window with no recipe are named at the head of the list.** A list that
   silently leaves out half the week is worse than no list at all.
 
@@ -428,18 +431,23 @@ every row or a swipe with no keyboard equivalent.
 ### The shopping list
 
 The list is a sheet of its own, opened by the shop-day marker at every width. The marker
-is already what says where shopping happens, so it is the only way in. In order, the sheet
-holds:
+is already what says where shopping happens, so it is the only way in. It renders its
+aisle sections and its no-ingredients notice only once the window's recipes have loaded —
+otherwise every meal in the window would flash there while its recipe is still in flight.
+In order, the sheet holds:
 
 1. The header: "Shopping list", with the window and its size beneath — `Sat 20 – Fri 26 ·
-   7 meals` — and `Shopping Saturday · Move to Sunday` to move the shop day from here.
+   7 meals`, cooks in the window, not distinct meals — and `Shopping Saturday · Move to
+   Sunday` to move the shop day from here.
 2. The meals it covers, as a row of tiles. Tapping one opens that meal's ingredients.
 3. Any of those meals with no ingredients yet, named, each opening its ingredients. This
    is how a gap in the list gets filled.
 4. The aisle sections in the order of §3, each item its name against its summed amount.
 5. `Extras` — ad-hoc items, added by typing and removed by a `×`. Removal takes no undo
    toast, because re-adding is one tap.
-6. `Reset the list`, which returns every item to `toGet`.
+6. `Reset the list`, which returns every item to `toGet`, confirmed inline — the row
+   becomes "Reset the list?" with a confirm — since mid-shop it throws away work and
+   takes no undo toast of its own.
 
 **An item's state cycles on tap**: `toGet` → `got` → `have` → `toGet`. One target on the
 row and no extra chrome; the two done states are told apart by their mark — a tick for
@@ -447,7 +455,8 @@ row and no extra chrome; the two done states are told apart by their mark — a 
 strikes through **in place**. Sorting it to the bottom would lose the reader's place in
 the aisle, which is the one thing a list held in a supermarket must not do. Extras take
 the same three states, so an extra that turned out to be in the cupboard is recorded as
-such too.
+such too. **Holding an ingredient's row opens its own name and aisle**, the same editor
+the ingredient picker's pencil reaches; tapping still cycles its state.
 
 ### Routes
 
@@ -647,7 +656,7 @@ Phases 1–4 are the planner; 9–10 are the shopping list. Update these boxes a
       their rules; `lib/units.ts` and the aisle set; `useIngredients` and `useRecipes`;
       the recipe sheet from the meal card's and cook card's menus; the ingredient picker,
       creating what it cannot find. *Checkpoint: every meal can carry its ingredients.*
-- [ ] **10. Shopping list** — the window from this week's and the next week's shop dates;
+- [x] **10. Shopping list** — the window from this week's and the next week's shop dates;
       `lib/shopping.ts`; the list from the shop marker and `/week/:date/shop`; aisle
       sections, the `toGet`/`got`/`have` cycle persisted on the week, extras, and the
       notice naming meals with no ingredients. *Checkpoint: the week can be shopped from a

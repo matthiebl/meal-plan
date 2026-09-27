@@ -76,9 +76,21 @@ service cloud.firestore {
     // weeks/{saturdayISO}
     match /weeks/{saturdayISO} {
       allow read: if isSignedIn();
+      // Every field is optional. An absent `shopDate` reads as that week's
+      // own Saturday, and the first write to a week is usually a
+      // shopping-list tap rather than a moved shop day — requiring
+      // `shopDate` would reject it. Rules cannot iterate a map's or a list's
+      // contents, so `shopping` and `extras` are checked for type and size
+      // only. See PLAN.md §7.
       allow create, update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['shopDate'])
-        && isISODate(request.resource.data.shopDate);
+        && request.resource.data.keys().hasOnly(['shopDate', 'shopping', 'extras'])
+        && (!('shopDate' in request.resource.data) || isISODate(request.resource.data.shopDate))
+        && (!('shopping' in request.resource.data)
+          || (request.resource.data.shopping is map
+            && request.resource.data.shopping.size() <= 500))
+        && (!('extras' in request.resource.data)
+          || (request.resource.data.extras is list
+            && request.resource.data.extras.size() <= 100));
       allow delete: if false;
     }
 

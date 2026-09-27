@@ -245,6 +245,7 @@ function App() {
       <Routes>
         <Route path="/" element={shell} />
         <Route path="/week/:date" element={shell} />
+        <Route path="/week/:date/shop" element={shell} />
         <Route path="/month/:ym" element={shell} />
         <Route path="*" element={shell} />
       </Routes>

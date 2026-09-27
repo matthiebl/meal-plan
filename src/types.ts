@@ -118,11 +118,29 @@ export type Recipe = {
   updatedAt: Timestamp
 }
 
+/**
+ * A shopping-list item that is done. `got` went in the trolley; `have` was
+ * already in the cupboard. An absent key on the week reads as 'toGet'; kept
+ * apart, the two say how often an ingredient must actually be bought against
+ * how often it is cooked with. See PLAN.md §3 and §10.
+ */
+export type ItemState = 'got' | 'have'
+
+/** An ad-hoc shopping-list item, belonging to no meal. */
+export type Extra = {
+  id: string
+  name: string
+}
+
 /** weeks/{saturdayISO} */
 export type Week = {
   id: string
-  /** 'YYYY-MM-DD'; defaults to that week's Saturday. */
-  shopDate: string
+  /** 'YYYY-MM-DD'; absent reads as that week's own Saturday. */
+  shopDate?: string
+  /** Ingredient or extra id -> its state on this week's list; an absent key is 'toGet'. */
+  shopping?: Record<string, ItemState>
+  /** Ad-hoc items, belonging to no meal, in the order added. */
+  extras?: Extra[]
 }
 
 /** Derived per-meal statistics. Computed on the frontend, never denormalized. See PLAN.md §4. */
