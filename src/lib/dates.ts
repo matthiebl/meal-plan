@@ -102,6 +102,11 @@ export function nextISODate(iso: string): string {
   return toISODate(addDays(fromISODate(iso), 1))
 }
 
+/** The day before a 'YYYY-MM-DD' string. */
+export function previousISODate(iso: string): string {
+  return toISODate(addDays(fromISODate(iso), -1))
+}
+
 /**
  * A week as one readable label, e.g. '12 – 19 September' or '27 Sep – 4 Oct'.
  * The year is added only when the week ends outside the current year.

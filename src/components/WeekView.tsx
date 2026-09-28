@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   addCook,
   addLeftovers,
@@ -20,9 +21,11 @@ import {
 import { EMPTY_STATS } from '../lib/mealSort'
 import { cookDetails, cooksOnDate } from '../lib/planner'
 import { useIsMobile } from '../lib/responsive'
-import type { Cook, Meal } from '../types'
+import type { Cook, Ingredient, Meal } from '../types'
 import DayRow from './DayRow'
 import Icon from './Icon'
+import RecipeSheet from './RecipeSheet'
+import ShoppingList from './ShoppingList'
 
 const UNDO_WINDOW_MS = 6000
 
@@ -30,6 +33,7 @@ type WeekViewProps = {
   saturday: Date
   meals: Meal[]
   cooks: Cook[]
+  ingredients: Ingredient[]
 }
 
 /** A message with an optional undo, shown briefly at the foot of the pane. */
@@ -40,7 +44,12 @@ type Toast = { message: string; undo?: () => void }
  * rows sharing the pane's height; on a phone they are a scrolling list, with
  * the current week's days before today folded away. See PLAN.md §6.
  */
-export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
+export default function WeekView({
+  saturday,
+  meals,
+  cooks,
+  ingredients,
+}: WeekViewProps) {
   const isMobile = useIsMobile()
   const mealsById = useMemo(
     () => new Map(meals.map(meal => [meal.id, meal])),
@@ -86,36 +95,64 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
   const startSaturdayISO = toISODate(days[0])
   const startSundayISO = toISODate(days[1])
   const endSaturdayISO = toISODate(days[7])
-  const startWeekShopDate = useWeekMeta(startSaturdayISO)
-  const endWeekShopDate = useWeekMeta(endSaturdayISO)
+  // One subscription supplies both this week's shop day and the next week's
+  // — the end Saturday's marker belongs to the following week.
+  const weekMeta = useWeekMeta(startSaturdayISO)
+  const navigate = useNavigate()
 
   const shopDayByDate = useMemo(() => {
-    const map = new Map<string, { active: boolean; onSet: () => void }>()
+    const map = new Map<
+      string,
+      { active: boolean; onSet: () => void; onOpen: () => void }
+    >()
     map.set(startSaturdayISO, {
-      active: startWeekShopDate === startSaturdayISO,
+      active: weekMeta.shopDate === startSaturdayISO,
       onSet: () => setShopDate(startSaturdayISO, startSaturdayISO),
+      onOpen: () => navigate(`/week/${startSaturdayISO}/shop`),
     })
     map.set(startSundayISO, {
-      active: startWeekShopDate === startSundayISO,
+      active: weekMeta.shopDate === startSundayISO,
       onSet: () => setShopDate(startSaturdayISO, startSundayISO),
+      onOpen: () => navigate(`/week/${startSaturdayISO}/shop`),
     })
     map.set(endSaturdayISO, {
-      active: endWeekShopDate === endSaturdayISO,
+      active: weekMeta.nextShopDate === endSaturdayISO,
       onSet: () => setShopDate(endSaturdayISO, endSaturdayISO),
+      onOpen: () => navigate(`/week/${endSaturdayISO}/shop`),
     })
     return map
   }, [
     startSaturdayISO,
     startSundayISO,
     endSaturdayISO,
-    startWeekShopDate,
-    endWeekShopDate,
+    weekMeta.shopDate,
+    weekMeta.nextShopDate,
+    navigate,
   ])
+
+  // The shopping list is a sheet over this same route, opened by the shop
+  // marker. A deep link straight to it has no history entry to go back to,
+  // so closing falls back to the week itself. See PLAN.md §6.
+  const location = useLocation()
+  const showShoppingList = location.pathname.endsWith('/shop')
+  function closeShoppingList() {
+    if (location.key === 'default') {
+      navigate(`/week/${startSaturdayISO}`, { replace: true })
+    } else {
+      navigate(-1)
+    }
+  }
 
   // Every destructive or off-screen action names what it did and offers an
   // undo for a few seconds. See PLAN.md §6.
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimeoutRef = useRef<number | undefined>(undefined)
+
+  // The recipe sheet, reached from the meal card's and cook card's menus.
+  // See PLAN.md §6.
+  const [recipeSheetMealId, setRecipeSheetMealId] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => () => window.clearTimeout(toastTimeoutRef.current), [])
 
@@ -241,11 +278,36 @@ export default function WeekView({ saturday, meals, cooks }: WeekViewProps) {
                 onMoveCookToDay={handleMoveCookToDay}
                 onAddLeftovers={handleAddLeftovers}
                 onQuickLeftovers={handleQuickLeftovers}
+                onIngredients={setRecipeSheetMealId}
               />
             )
           })}
         </div>
       </div>
+
+      {recipeSheetMealId &&
+        (() => {
+          const meal = mealsById.get(recipeSheetMealId)
+          return meal ? (
+            <RecipeSheet
+              meal={meal}
+              ingredients={ingredients}
+              onClose={() => setRecipeSheetMealId(null)}
+            />
+          ) : null
+        })()}
+
+      {showShoppingList && (
+        <ShoppingList
+          saturdayISO={startSaturdayISO}
+          meta={weekMeta}
+          cooks={cooks}
+          meals={meals}
+          ingredients={ingredients}
+          onClose={closeShoppingList}
+          onOpenRecipe={setRecipeSheetMealId}
+        />
+      )}
 
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4">

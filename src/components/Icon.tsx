@@ -136,6 +136,18 @@ const PATHS = {
     'M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8',
     'M10 12h4',
   ],
+  ingredients: [
+    'M6 3v8a3 3 0 0 0 6 0V3',
+    'M9 11v10',
+    'M17 3c-1.7 0-3 2.5-3 6s1.3 6 3 6v6',
+  ],
+  check: ['M5 13l4 4 10-10'],
+  cupboard: [
+    'M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z',
+    'M12 3v18',
+    'M9 8h.01',
+    'M15 16h.01',
+  ],
 } satisfies Record<Category | string, string[]>
 
 export type IconName = keyof typeof PATHS

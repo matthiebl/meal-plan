@@ -1,4 +1,6 @@
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   deleteField,
@@ -9,7 +11,16 @@ import {
   writeBatch,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
-import type { Cook, CookKind, MealCategory } from '../types'
+import type {
+  Aisle,
+  Cook,
+  CookKind,
+  Extra,
+  ItemState,
+  MealCategory,
+  RecipeItem,
+  Unit,
+} from '../types'
 
 /**
  * Firestore applies a local write to `onSnapshot` immediately, so nothing in
@@ -174,7 +185,165 @@ export function restoreCook(cook: Cook): void {
   fire(setDoc(doc(db, 'cooks', id), data))
 }
 
-/** Sets a week's shop day — its own Saturday, or the Sunday right after. */
+/**
+ * Sets a week's shop day — its own Saturday, or the Sunday right after.
+ * Merged: the week document also carries the shopping list's state, and a
+ * shop day moved from the list's own header must not wipe it.
+ */
 export function setShopDate(saturdayISO: string, shopDate: string): void {
-  fire(setDoc(doc(db, 'weeks', saturdayISO), { shopDate }))
+  fire(setDoc(doc(db, 'weeks', saturdayISO), { shopDate }, { merge: true }))
+}
+
+export type NewIngredient = {
+  name: string
+  aisle: Aisle | undefined
+  defaultUnit: Unit | undefined
+}
+
+/**
+ * Creates an ingredient, returning its id immediately so the recipe row that
+ * asked for it can be written in the same gesture. Firestore rejects
+ * `undefined`, so an unset aisle or unit is left out entirely.
+ */
+export function addIngredient({
+  name,
+  aisle,
+  defaultUnit,
+}: NewIngredient): string {
+  const ref = doc(collection(db, 'ingredients'))
+  fire(
+    setDoc(ref, {
+      name,
+      ...(aisle ? { aisle } : {}),
+      ...(defaultUnit ? { defaultUnit } : {}),
+      createdAt: serverTimestamp(),
+    }),
+  )
+  return ref.id
+}
+
+export type IngredientPatch = {
+  name?: string
+  /** `null` clears a stored aisle, which then reads as 'other'. */
+  aisle?: Aisle | null
+  /** `null` clears a stored default unit. */
+  defaultUnit?: Unit | null
+}
+
+/**
+ * Saves whichever of an ingredient's fields are named. A partial patch rather
+ * than a whole-document save, because two call sites are independent: the
+ * picker renames an ingredient or moves its aisle, and saving a recipe row
+ * records the unit it used as the ingredient's `defaultUnit` so the second
+ * time it is added nothing needs tapping. See PLAN.md §6.
+ */
+export function updateIngredient(
+  ingredientId: string,
+  patch: IngredientPatch,
+): void {
+  const data: Record<string, unknown> = {}
+  if (patch.name !== undefined) data.name = patch.name
+  if (patch.aisle !== undefined) data.aisle = patch.aisle ?? deleteField()
+  if (patch.defaultUnit !== undefined) {
+    data.defaultUnit = patch.defaultUnit ?? deleteField()
+  }
+  fire(updateDoc(doc(db, 'ingredients', ingredientId), data))
+}
+
+/** Firestore rejects `undefined`, so a row with no note is written without the key. */
+function recipeItemData({ ingredientId, amount, unit, note }: RecipeItem): RecipeItem {
+  return { ingredientId, amount, unit, ...(note ? { note } : {}) }
+}
+
+/**
+ * Replaces a meal's recipe items — every addition, edit, reorder and removal
+ * on the recipe sheet, which has no Save button. Merged, so the document is
+ * created by its first ingredient and so a future `method` field survives an
+ * ingredient edit. A recipe emptied of items keeps an empty `items` rather
+ * than being deleted. See PLAN.md §6 and §10.
+ */
+export function setRecipeItems(mealId: string, items: RecipeItem[]): void {
+  fire(
+    setDoc(
+      doc(db, 'recipes', mealId),
+      { items: items.map(recipeItemData), updatedAt: serverTimestamp() },
+      { merge: true },
+    ),
+  )
+}
+
+/**
+ * Sets one item's state on a week's list, keyed by ingredient id or extra id.
+ * `null` deletes the key, which is `toGet` — the absence of a key.
+ *
+ * Merged rather than updated: the week document may not exist yet (most
+ * weeks are never written to until someone shops), and `updateDoc` fails on
+ * a missing document. Merging a nested map also leaves the map's other keys,
+ * the extras and the shop day alone, which is what makes this safe without
+ * reading the document first. See PLAN.md §3.
+ */
+export function setItemState(
+  saturdayISO: string,
+  itemId: string,
+  state: ItemState | null,
+): void {
+  fire(
+    setDoc(
+      doc(db, 'weeks', saturdayISO),
+      { shopping: { [itemId]: state ?? deleteField() } },
+      { merge: true },
+    ),
+  )
+}
+
+/**
+ * Returns every item on a week's list — ingredients and extras alike — to
+ * `toGet`, by deleting the map that records the exceptions. See PLAN.md §6.
+ */
+export function resetShopping(saturdayISO: string): void {
+  fire(
+    setDoc(
+      doc(db, 'weeks', saturdayISO),
+      { shopping: deleteField() },
+      { merge: true },
+    ),
+  )
+}
+
+/**
+ * Adds an ad-hoc item to a week's list, returning its id. The id is minted
+ * here rather than by Firestore: an extra is an element of an array, not a
+ * document, and its id keys its state in the same `shopping` map the
+ * ingredients use, so it must not collide with an ingredient id.
+ *
+ * `arrayUnion` needs no read of the document, and two people adding at once
+ * both land.
+ */
+export function addExtra(saturdayISO: string, name: string): string {
+  const extra: Extra = { id: crypto.randomUUID(), name }
+  fire(
+    setDoc(
+      doc(db, 'weeks', saturdayISO),
+      { extras: arrayUnion(extra) },
+      { merge: true },
+    ),
+  )
+  return extra.id
+}
+
+/**
+ * Removes an ad-hoc item, and the state it carried with it — a removed extra
+ * must not leave a stale key in `shopping`. Takes the whole `Extra` because
+ * `arrayRemove` matches by value, which is what keeps this a single write
+ * with no read. Removal takes no undo toast: re-adding is one tap. See
+ * PLAN.md §6.
+ */
+export function removeExtra(saturdayISO: string, extra: Extra): void {
+  fire(
+    setDoc(
+      doc(db, 'weeks', saturdayISO),
+      { extras: arrayRemove(extra), shopping: { [extra.id]: deleteField() } },
+      { merge: true },
+    ),
+  )
 }

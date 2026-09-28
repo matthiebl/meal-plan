@@ -5,10 +5,12 @@ import { format } from 'date-fns'
 import { useRef, useState } from 'react'
 import { fromISODate, nextISODate } from '../lib/dates'
 import { cookDragId, leftoversDragId } from '../lib/dnd'
+import { MENU_LABEL, MENU_ROW } from '../lib/menuStyles'
 import { useIsMobile } from '../lib/responsive'
 import type { Cook, Meal } from '../types'
 import DayStrip from './DayStrip'
 import Icon from './Icon'
+import IngredientsMenuRow from './IngredientsMenuRow'
 import MealTile from './MealTile'
 import Popover from './Popover'
 
@@ -27,11 +29,9 @@ type CookChipProps = {
   onMoveToDay: (date: string) => void
   onAddLeftovers: (date: string) => void
   onQuickLeftovers: () => void
+  onIngredients: () => void
 }
 
-const MENU_LABEL = 'mb-2 ml-0.5 text-xs text-ink-3'
-const MENU_ROW =
-  'flex w-full items-center gap-3 px-0.5 py-3 text-left text-[15px] md:py-2.5 md:text-sm'
 const REORDER_BUTTON =
   'flex h-8 items-center gap-0.5 rounded-full bg-surface-1 pr-3 pl-2 text-xs text-ink-2 hover:text-ink disabled:opacity-40'
 
@@ -63,6 +63,7 @@ export default function CookChip({
   onMoveToDay,
   onAddLeftovers,
   onQuickLeftovers,
+  onIngredients,
 }: CookChipProps) {
   const isLeftovers = cook.kind === 'leftovers'
   const isMobile = useIsMobile()
@@ -225,6 +226,14 @@ export default function CookChip({
         />
 
         <div className="mt-4 border-t border-line">
+          <IngredientsMenuRow
+            mealId={meal.id}
+            onClick={() => {
+              onIngredients()
+              setMenuOpen(false)
+            }}
+            className="border-b border-line"
+          />
           {(canMoveLeft || canMoveRight) && (
             <div className={`${MENU_ROW} border-b border-line`}>
               <Icon name="sort" className="h-5 w-5 text-ink-3" />

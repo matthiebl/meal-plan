@@ -28,6 +28,20 @@ service cloud.firestore {
           || (isCategory(category.secondary) && category.secondary != category.main));
     }
 
+    function isUnit(value) {
+      return value in [
+        'g', 'kg', 'ml', 'L', 'tsp', 'tbsp', 'cup',
+        'each', 'clove', 'bunch', 'sprig', 'can', 'packet', 'slice', 'some'
+      ];
+    }
+
+    function isAisle(value) {
+      return value in [
+        'produce', 'meat', 'dairy', 'bakery', 'pantry', 'frozen', 'drinks',
+        'household', 'other'
+      ];
+    }
+
     // meals/{mealId}
     match /meals/{mealId} {
       allow read: if isSignedIn();
@@ -62,9 +76,53 @@ service cloud.firestore {
     // weeks/{saturdayISO}
     match /weeks/{saturdayISO} {
       allow read: if isSignedIn();
+      // Every field is optional. An absent `shopDate` reads as that week's
+      // own Saturday, and the first write to a week is usually a
+      // shopping-list tap rather than a moved shop day — requiring
+      // `shopDate` would reject it. Rules cannot iterate a map's or a list's
+      // contents, so `shopping` and `extras` are checked for type and size
+      // only. See PLAN.md §7.
       allow create, update: if isSignedIn()
-        && request.resource.data.keys().hasAll(['shopDate'])
-        && isISODate(request.resource.data.shopDate);
+        && request.resource.data.keys().hasOnly(['shopDate', 'shopping', 'extras'])
+        && (!('shopDate' in request.resource.data) || isISODate(request.resource.data.shopDate))
+        && (!('shopping' in request.resource.data)
+          || (request.resource.data.shopping is map
+            && request.resource.data.shopping.size() <= 500))
+        && (!('extras' in request.resource.data)
+          || (request.resource.data.extras is list
+            && request.resource.data.extras.size() <= 100));
+      allow delete: if false;
+    }
+
+    // ingredients/{ingredientId}
+    match /ingredients/{ingredientId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['name', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && (!('aisle' in request.resource.data) || isAisle(request.resource.data.aisle))
+        && (!('defaultUnit' in request.resource.data) || isUnit(request.resource.data.defaultUnit))
+        && request.resource.data.createdAt is timestamp;
+      // Ingredients are never deleted and never archived: a recipe may
+      // reference any of them, and an unused one costs nothing.
+      allow delete: if false;
+    }
+
+    // recipes/{mealId}
+    match /recipes/{mealId} {
+      allow read: if isSignedIn();
+      // Rules cannot iterate a list's contents, so `items` is checked for
+      // type and size only; the shape of each item is the frontend's to
+      // hold. See PLAN.md §7.
+      allow create, update: if isSignedIn()
+        && request.resource.data.keys().hasAll(['items', 'updatedAt'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 200
+        && request.resource.data.updatedAt is timestamp;
+      // A recipe emptied of ingredients keeps an empty `items`; the document
+      // is not deleted, so the shopping list can name the meal as having
+      // none.
       allow delete: if false;
     }
   }

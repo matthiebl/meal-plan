@@ -8,7 +8,7 @@ import {
 } from 'react'
 import { createPortal } from 'react-dom'
 import { useIsMobile } from '../lib/responsive'
-import Icon from './Icon'
+import SheetHeader from './SheetHeader'
 
 type PopoverProps = {
   open: boolean
@@ -132,28 +132,13 @@ export default function Popover({
                 onClick={event => event.stopPropagation()}
                 className="max-h-[85dvh] overflow-y-auto rounded-t-3xl border-t border-line bg-surface-3 px-4 pt-2.5 pb-[calc(1rem+env(safe-area-inset-bottom))] text-ink shadow-2xl"
               >
-                <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-line-strong" />
-                <div className="mb-4 flex items-center gap-3">
-                  {sheetLead}
-                  <div className="min-w-0 flex-1">
-                    <h2 className="truncate text-[15px] font-medium">
-                      {sheetTitle}
-                    </h2>
-                    {sheetSubtitle && (
-                      <p className="mt-0.5 truncate text-[13px] text-ink-3">
-                        {sheetSubtitle}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    aria-label="Close"
-                    className="-mr-1.5 flex h-9 w-9 items-center justify-center rounded-full text-ink-3 hover:bg-surface-1"
-                  >
-                    <Icon name="x" />
-                  </button>
-                </div>
+                <SheetHeader
+                  grabHandle
+                  lead={sheetLead}
+                  title={sheetTitle}
+                  subtitle={sheetSubtitle}
+                  onClose={onClose}
+                />
                 {children}
               </div>
             </div>,

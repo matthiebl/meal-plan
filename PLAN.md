@@ -6,12 +6,14 @@ for how to maintain it.
 
 ## 1. Purpose
 
-A single-screen app for two things:
+A single-screen app for three things:
 
 1. **Recording what has been cooked**, so it is possible to see what has not been cooked
    in a while.
 2. **Planning roughly the next week of meals**, so shopping and each night's cooking are
    decided in advance.
+3. **Shopping for a week**, so what is planned becomes a list to shop from, summed across
+   the meals it covers.
 
 There is no user concept. All data is public and shared. There is no authentication UI.
 
@@ -37,7 +39,7 @@ shopping-list push), or private per-user data. None of these are in scope.
 
 ## 3. Data model
 
-Three Firestore collections. **All dates are stored as `YYYY-MM-DD` local-date strings.
+Five Firestore collections. **All dates are stored as `YYYY-MM-DD` local-date strings.
 Dates are never stored as `Timestamp`.** This avoids timezone off-by-one errors and sorts
 lexicographically.
 
@@ -67,6 +69,34 @@ type Cook = {
 // weeks/{saturdayISO}
 type Week = {
   shopDate: string          // 'YYYY-MM-DD'; defaults to that week's Saturday
+  shopping?: {              // ingredientId or extra id -> its state on this week's list;
+    [id: string]: ItemState //   an absent key is 'toGet'
+  }
+  extras?: Extra[]          // ad-hoc items, belonging to no meal
+}
+
+type ItemState = 'got' | 'have'
+type Extra = { id: string; name: string }
+
+// ingredients/{ingredientId}
+type Ingredient = {
+  name: string              // canonical, as it appears on the shopping list
+  aisle?: Aisle             // absent reads as 'other'; see Quantities and aisles
+  defaultUnit?: Unit        // offered first the next time it is added to a recipe
+  createdAt: Timestamp
+}
+
+// recipes/{mealId}
+type Recipe = {
+  items: RecipeItem[]       // in the order entered
+  updatedAt: Timestamp
+}
+
+type RecipeItem = {
+  ingredientId: string
+  amount: number            // > 0; a `some` row stores 1 and hides the field — see below
+  unit: Unit                // see Quantities and aisles
+  note?: string             // 'minced', 'finely sliced' — how it is prepared
 }
 ```
 
@@ -89,13 +119,64 @@ Requirements on this model:
   without one needs no migration. Saving a meal deletes a cleared
   `category` rather than writing an empty one, and deletes any `visual`, a retired field
   that older meal documents carry.
+- **`recipes` is a top-level collection keyed by `mealId`**, not a subcollection of the
+  meal. A week's shopping list needs several meals' recipes at once, which one
+  `where(documentId(), 'in', …)` query answers; a subcollection would need a
+  collection-group query or a read per meal. Either way `meals/{mealId}` stays narrow.
+- **A recipe references ingredients by id and never names them.** Renaming an ingredient
+  renames it everywhere, and the shopping list can sum one ingredient across meals.
+- **Ingredients are never deleted and are never archived.** A recipe may reference any of
+  them, and an unused one costs nothing: it simply stops appearing until searched for.
+- **A recipe's quantities are as entered, for the meal's stated `servings`.** Planning a
+  meal does not scale them.
+- **An ingredient's own name and aisle are corrected from the ingredient picker's search
+  results**, which carry a pencil beside each row, separate from the row's main target.
+  Renaming an ingredient renames it everywhere it is used.
+- **A shopping-list item is `toGet`, `got`, or `have`.** `got` means it went in the
+  trolley; `have` means it was already in the cupboard and was not bought. Both read as
+  done while shopping, but they are different facts: kept apart, they are what says how
+  often an ingredient has to be bought against how often it is cooked with. The state is
+  keyed by ingredient on the week, so two people shop from one list, and it survives a
+  change to that week's plan.
+- **A recipe item's `note` describes preparation, not buying.** It renders on the recipe
+  sheet and never on the shopping list: `minced` does not change what goes in the trolley.
+
+### Quantities and aisles
+
+Units are a closed set, tapped rather than typed. Each belongs to a family; amounts sum
+within a family and render in that family's most readable unit. Two families of one
+ingredient are two amounts against one name — rare, and honest when it happens.
+
+| Family | Units | Base | Rendered as |
+|---|---|---|---|
+| Mass | `g`, `kg` | g | g below 1000, else kg |
+| Volume | `ml`, `L` | ml | ml below 1000, else L |
+| Kitchen measure | `tsp`, `tbsp`, `cup` | tsp | tsp below 4, tbsp below 50, else cup. 1 tbsp = 4 tsp and 1 cup = 50 tsp, the Australian metric spoon |
+| Count | `each`, `clove`, `bunch`, `sprig`, `can`, `packet`, `slice` | itself; these never convert | the number and the unit, pluralised, except `each`, which is the number alone |
+| Unmeasured | `some` | — | `as needed`, and dropped entirely where the same ingredient also carries a measured amount |
+
+Amounts render to at most one decimal, and never as a fraction.
+
+Aisles are a closed set too, ordered as a supermarket is walked, which is the order the
+shopping list takes: `produce`, `meat`, `dairy`, `bakery`, `pantry`, `frozen`, `drinks`,
+`household`, `other` — labelled "Meat & fish" and "Dairy & eggs" where the id alone would
+read as narrower than the aisle is.
 
 ### Reads
 
-Two `onSnapshot` subscriptions: all meals, and all cooks. The full cook history is held in
-memory (on the order of a few hundred documents per year). If volume ever makes this
-unreasonable, the escape hatch is a `where('date', '>=', bound)` query on `cooks` plus
-denormalized per-meal stats — not a backend.
+Three `onSnapshot` subscriptions on boot: all meals, all cooks, and all ingredients. The
+full cook history is held in memory (on the order of a few hundred documents per year),
+and the ingredient table is smaller still. If volume ever makes this unreasonable, the
+escape hatch is a `where('date', '>=', bound)` query on `cooks` plus denormalized per-meal
+stats — not a backend.
+
+**`recipes` is never subscribed to in full.** A single recipe is subscribed for as long
+as its sheet — or the menu counting its ingredients — is open, and a week's recipes are
+subscribed together for its shopping list, chunked at thirty ids per
+`where(documentId(), 'in', …)` query, so an ingredient added from the list's own
+"no ingredients" entry point lands on the list without a refresh. Recipes are the one
+collection that grows with what is written in them rather than with how often the app is
+used.
 
 ## 4. Derived statistics
 
@@ -121,6 +202,25 @@ Each cook in the displayed week also carries a detail line, derived the same way
 
 The gap is measured to the cook's own date, not to today, so it reads the same for a plan
 as for a record.
+
+### The shopping list
+
+A week's shopping list is derived on the frontend from that week's cooks and their
+recipes, exactly as the statistics above are. Nothing about it is denormalized.
+
+- **The window** runs from this week's `shopDate` up to, but not including, the next
+  week's `shopDate`, each defaulting to its own Saturday. It is Saturday to Friday
+  normally, and Sunday to Saturday where the shop has moved to the Sunday. Every day
+  belongs to exactly one window, so no day is shopped for twice and none is missed — which
+  is why the window is not simply the eight days the week view shows.
+- **The cooks** are those in the window with `kind: 'cook'`. Leftovers are ignored: they
+  were bought for once already. A meal cooked twice in the window counts twice.
+- **The items** are those cooks' recipe items, each converted to its family's base unit,
+  multiplied by the number of times that meal is cooked in the window, summed per
+  ingredient and family, and grouped by the ingredient's aisle. Within an aisle, items are
+  alphabetical: the order must not shift as amounts change or as items are ticked off.
+- **Meals in the window with no recipe are named at the head of the list.** A list that
+  silently leaves out half the week is worse than no list at all.
 
 ## 5. Visual system
 
@@ -198,9 +298,10 @@ carries a title of its own instead.
 Because the two panes are never on screen together on a phone, **every gesture that spans
 them has an equivalent that does not** — see the meal card's plan menu below.
 
-**Nothing is typed where it can be tapped.** Text entry is reserved for the two things
-that are genuinely free text: a meal's name, and the search boxes. Servings, sort order,
-category, and every choice of day are tapped from a fixed set.
+**Nothing is typed where it can be tapped.** Text entry is reserved for what is genuinely
+free: a meal's name, an ingredient's name, a recipe item's amount and note, an ad-hoc
+shopping extra, and the search boxes. Servings, sort order, category, unit, aisle, and
+every choice of day are tapped from a fixed set.
 
 ### Left pane — meal library
 
@@ -223,7 +324,8 @@ down arrow. The default sort is the answer to "what has not been cooked in a whi
 separate view exists for that.
 
 **Clicking a meal card opens its menu**: the displayed week's eight days as a strip, which
-plans the meal on the day picked, and an entry to edit the meal. As a sheet, its header
+plans the meal on the day picked, an entry to edit the meal, and an entry to its
+ingredients, counted (`Ingredients · 6`, or `Add ingredients`). As a sheet, its header
 shows when the meal was last eaten and how many times it has been cooked. The strip is the
 click equivalent of dragging the card onto a day, and on a phone it is the only path from
 the library to the planner.
@@ -284,10 +386,11 @@ and only once the planner has moved away from the current week or month.
     plan. The fold resets when the displayed week changes.
 - **The day's date is its add button** at every width, so a day that already has cooks can
   be added to without aiming at the gap beside them.
-- Both Saturdays carry a shop-day marker: a bag and "Shop". The marker can be moved to the
-  Sunday of that week, persisted as `weeks/{saturdayISO}.shopDate`; where the shop is not,
-  the marker is a faint bag to tap. From `md` up its slot is reserved on every row, so a
-  day carrying one is no narrower than its neighbours.
+- Both Saturdays carry a shop-day marker: a bag and "Shop". Tapping the solid bag on the
+  shop day opens that week's shopping list; tapping the faint bag on the alternative day
+  moves the shop there, persisted as `weeks/{saturdayISO}.shopDate`. From `md` up the
+  marker's slot is reserved on every row, so a day carrying one is no narrower than its
+  neighbours.
 
 **Month view** (for historical browsing):
 
@@ -300,13 +403,70 @@ and only once the planner has moved away from the current week or month.
 - Not a drag target. Clicking a day switches to the week view containing that day.
 - Today's cell is tinted `accent-soft`; days outside the displayed month are dimmed.
 
+### Ingredients and recipes
+
+**A meal's ingredients live on their own sheet**, not in the meal dialog. The dialog stays
+short enough to fill in one pass, and the sheet has the room a growing list needs. It is
+reached from the meal card's menu and from the cook card's menu, so an ingredient missing
+from a meal can be added from whichever pane noticed.
+
+The sheet carries the standard header — the meal's tile, its name, `Serves n`, a close
+button — over its items as rows: the amount and unit at the left, the ingredient's name as
+the row's subject, and the note in secondary text after it (`Garlic · minced`). An "Add
+ingredient" row ends the list. **There is no Save button**: each addition, edit and
+removal writes immediately, as everything in the planner does.
+
+**Adding or editing a row opens the ingredient picker**: a search over the ingredient
+table with the matches as rows, ending in `Create "…"` where nothing matches — the same
+shape as the meal library's and the day's picker. Choosing an ingredient moves the sheet
+to the amount: a numeric field, the unit as chips of every unit grouped by family in the
+order of §3's table, the selected unit's family first, and the note. The `defaultUnit` is
+preselected where the ingredient has one. Saving records the unit used as the ingredient's
+`defaultUnit`, so the second time it is added nothing needs tapping. Creating an
+ingredient asks for its aisle in the same step, which is the one moment it is worth
+asking. **Editing an existing row's amount step carries a Remove row at its foot**, in
+the same danger styling as an editor's other destructive rows, rather than a `×` crowding
+every row or a swipe with no keyboard equivalent.
+
+### The shopping list
+
+The list is a sheet of its own, opened by the shop-day marker at every width. The marker
+is already what says where shopping happens, so it is the only way in. It renders its
+aisle sections and its no-ingredients notice only once the window's recipes have loaded —
+otherwise every meal in the window would flash there while its recipe is still in flight.
+In order, the sheet holds:
+
+1. The header: "Shopping list", with the window and its size beneath — `Sat 20 – Fri 26 ·
+   7 meals`, cooks in the window, not distinct meals — and `Shopping Saturday · Move to
+   Sunday` to move the shop day from here.
+2. The meals it covers, as a row of tiles. Tapping one opens that meal's ingredients.
+3. Any of those meals with no ingredients yet, named, each opening its ingredients. This
+   is how a gap in the list gets filled.
+4. The aisle sections in the order of §3, each item its name against its summed amount.
+5. `Extras` — ad-hoc items, added by typing and removed by a `×`. Removal takes no undo
+   toast, because re-adding is one tap.
+6. `Reset the list`, which returns every item to `toGet`, confirmed inline — the row
+   becomes "Reset the list?" with a confirm — since mid-shop it throws away work and
+   takes no undo toast of its own.
+
+**An item's state cycles on tap**: `toGet` → `got` → `have` → `toGet`. One target on the
+row and no extra chrome; the two done states are told apart by their mark — a tick for
+`got`, a cupboard for `have` — with the state named beside it. A done item dims and
+strikes through **in place**. Sorting it to the bottom would lose the reader's place in
+the aisle, which is the one thing a list held in a supermarket must not do. Extras take
+the same three states, so an extra that turned out to be in the cupboard is recorded as
+such too. **Holding an ingredient's row opens its own name and aisle**, the same editor
+the ingredient picker's pencil reaches; tapping still cycles its state.
+
 ### Routes
 
 - `/` — the current week
 - `/week/:date` — the week containing `date`
+- `/week/:date/shop` — that week's shopping list, over the week
 - `/month/:ym` — that month
 
-Browser back and forward navigate between weeks and months.
+Browser back and forward navigate between weeks and months, and back dismisses the
+shopping list.
 
 ### Drag and drop
 
@@ -352,8 +512,8 @@ Requirements:
   a list of day names to read down. In the move strip the card's own day is filled and
   not pickable. In the leftovers strip the card's day and every day before it are
   disabled, and the next day is tinted as the likeliest pick. Below the strips, the menu
-  reorders the card earlier or later within its day (when the day has another cook) and
-  removes it.
+  opens the meal's ingredients, reorders the card earlier or later within its day (when
+  the day has another cook), and removes it.
 - Drag handles allow vertical panning rather than suppressing touch outright. Chips and
   meal cards cover most of both panes, and a finger landing on one has to be able to
   scroll. The touch sensor starts on a hold, so a swipe scrolls and a hold still drags.
@@ -361,7 +521,9 @@ Requirements:
 - A cook card's menu and a day's meal picker flip above or right-align themselves when
   there is no room below. Both panes scroll, so a panel that always opened downwards
   would be clipped. Below `md` these panels are **bottom sheets** instead — reachable by
-  thumb, and never squeezed against an edge. Every sheet has the same header: the tile of
+  thumb, and never squeezed against an edge. The recipe sheet, the ingredient picker and
+  the shopping list are bottom sheets below `md` and centred dialogs above it, since each
+  is too tall to hang off the control that opened it. Every sheet has the same header: the tile of
   the meal it acts on where there is one, a title, a subtitle (the day, or the meal's
   history), and a close button. A sheet is portalled to the body: a dragging card carries
   a transform, and a `fixed` descendant of a transformed element positions against that
@@ -386,9 +548,11 @@ Requirements:
 - The app calls `signInAnonymously` on boot. There is no login UI and no user concept in
   the interface.
 - `firestore.rules` is committed to the repository. Rules require `request.auth != null`
-  for both reads and writes, and validate document shape for `meals`, `cooks`, and
-  `weeks`. Anonymous auth exists solely to stop scripted access by anyone who reads the
-  Firebase config out of the JS bundle.
+  for both reads and writes, and validate document shape for `meals`, `cooks`, `weeks`,
+  `ingredients`, and `recipes`. Rules cannot iterate a list's or a map's contents, so a
+  recipe's `items` and a week's `shopping` are checked for type and size only; the shape
+  of what is inside them is the frontend's to hold. Anonymous auth exists solely to stop
+  scripted access by anyone who reads the Firebase config out of the JS bundle.
 - The app is hosted on GitHub Pages and served from `/meal-plan/`, so Vite's `base` and
   the router's `basename` are both that path.
 - Pushing to `master` builds and deploys through `.github/workflows/deploy.yml`. Nothing
@@ -401,7 +565,8 @@ Requirements:
 
 ```
 src/
-  types.ts               # Meal, Cook, Week, Category, MealCategory, MealStats
+  types.ts               # Meal, Cook, Week, Category, MealCategory, MealStats,
+                         # Ingredient, Recipe, RecipeItem, Unit, UnitFamily, Aisle
   lib/
     firebase.ts          # app init, db handle, anonymous sign-in
     dates.ts             # Saturday-week maths, month grid, ISO helpers, labels
@@ -411,13 +576,21 @@ src/
     plannerRoute.ts      # usePlannerRoute: the displayed week or month, and moves
     dnd.ts               # drag id helpers, DragData/DropData payload types
     responsive.ts        # useIsMobile, for the cases where markup differs, not just CSS
+    menuStyles.ts         # shared class strings for a popover menu's action rows
+    units.ts             # the unit set and its families, base conversion, formatting
+    ingredients.ts       # the aisle set in walk order, and name matching for search
+    shopping.ts          # the shop window, and the §4 list built from cooks + recipes
   data/
     useMeals.ts          # onSnapshot over meals
     useCooks.ts          # onSnapshot over cooks
+    useIngredients.ts    # onSnapshot over ingredients
+    useRecipes.ts        # the recipes for a set of mealIds, chunked at thirty ids
     useMealStats.ts      # derives the §4 statistics
-    useWeekMeta.ts       # shop-day read/write
+    useWeekMeta.ts       # a week's shop day and the next week's, and the list's state
     mutations.ts         # addMeal, updateMeal, archiveMeal, addCook, insertCook,
-                         # moveCook, reorderDay, addLeftovers, deleteCook, setShopDate
+                         # moveCook, reorderDay, addLeftovers, deleteCook, setShopDate,
+                         # addIngredient, updateIngredient, setRecipeItems, setItemState,
+                         # addExtra, removeExtra, resetShopping
   components/
     MealList.tsx
     MealCard.tsx
@@ -436,9 +609,18 @@ src/
     DragOverlayChip.tsx
     DayStrip.tsx         # the week's eight days as buttons, wherever something
                          # is placed on a day without dragging it there
+    RecipeSheet.tsx      # a meal's ingredients
+    IngredientPicker.tsx # ingredient search and creation, then amount, unit and note
+    IngredientEditor.tsx # an existing ingredient's own name and aisle
+    IngredientsMenuRow.tsx # the `Ingredients · n` row shared by both menus
+    AisleChips.tsx        # the aisle set as a chip row
+    ShoppingList.tsx     # the week's list: aisles, item states, extras
     Popover.tsx          # anchored panel that flips to stay on screen, and is a
                          # bottom sheet below md: the day picker, the cook chip
                          # menu, the meal card menu
+    Sheet.tsx             # bottom sheet below md, centred dialog above it: the
+                         # recipe sheet, the ingredient picker, the shopping list
+    SheetHeader.tsx        # the standard header every sheet carries
   App.tsx                # shell with header and tab bar, routes, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme interface palette
@@ -448,7 +630,7 @@ firestore.rules
 
 ## 9. Build order
 
-Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work lands.
+Phases 1–4 are the planner; 9–10 are the shopping list. Update these boxes as work lands.
 
 - [x] **1. Foundations** — remove the template's `src/pages/` and demo layout; two-pane
       shell with dark toggle; `lib/firebase.ts` with anonymous auth; `types.ts`;
@@ -470,24 +652,42 @@ Phases 1–4 are the product; 5–6 are comfort. Update these boxes as work land
       interface palette tokens; toolbar in the desktop header; pane headers on a phone;
       sort pills; phone month bars; the phone week as a list of cook cards with earlier
       days folded; the picker as sorted cards.
+- [x] **9. Ingredients and recipes** — the `ingredients` and `recipes` collections and
+      their rules; `lib/units.ts` and the aisle set; `useIngredients` and `useRecipes`;
+      the recipe sheet from the meal card's and cook card's menus; the ingredient picker,
+      creating what it cannot find. *Checkpoint: every meal can carry its ingredients.*
+- [x] **10. Shopping list** — the window from this week's and the next week's shop dates;
+      `lib/shopping.ts`; the list from the shop marker and `/week/:date/shop`; aisle
+      sections, the `toGet`/`got`/`have` cycle persisted on the week, extras, and the
+      notice naming meals with no ingredients. *Checkpoint: the week can be shopped from a
+      phone.*
 
 ## 10. Forward compatibility
 
-Ingredients, recipes, and methods are **not** in scope, but the schema must not need
-migrating when they arrive. Two standing constraints:
+Method and buying statistics are **not** in scope, but the schema must not need migrating
+when they arrive. Four standing constraints:
 
 - **`meals/{mealId}` stays narrow.** The left pane loads every meal on boot, so ingredient
-  lists and method text must never be added to that document. They belong in a
-  subdocument (`meals/{mealId}/detail/recipe`) fetched on demand. The `Meal` type in §3 is
-  the list-view projection and is to be kept that way.
+  lists and method text never go on that document. The `Meal` type in §3 is the list-view
+  projection and is to be kept that way.
+- **`recipes/{mealId}` is fetched on demand**, never subscribed to in full, so it can grow
+  as long as a recipe needs to be.
 - **`mealId` is the stable spine.** Cooks reference `mealId` and never copy meal fields, so
-  a meal gaining a recipe, photo, or ingredient list changes nothing about existing
-  history. Shopping-list generation later resolves as: this week's cooks → their `mealId`s
-  → their ingredient subcollections.
+  a meal gaining a recipe or a photo changes nothing about existing history.
+- **A shopping-list item's state distinguishes `got` from `have` from the outset**, even
+  though nothing yet reads the difference. How often an ingredient must actually be bought
+  against how often it is cooked with is derived later from the `shopping` maps across
+  weeks, on the frontend, as every statistic in §4 is. The fact is only available while
+  shopping; a single tick would throw it away, and it cannot be reconstructed afterwards.
+
+Method arrives as a `method` field on the recipe document, rendered beneath the
+ingredients on the recipe sheet. Nothing else moves when it does.
 
 ## 11. Out of scope
 
 The app does not include: ratings, prep or cook time, free-form tags, categories beyond
-the closed set in §5, per-cook
-serving overrides, shopping lists, meal photos, recipe or ingredient storage, any "done"
-or "skipped" state on a cook, accounts, or sharing controls.
+the closed set in §5, per-cook serving overrides, scaling a recipe to a different number
+of servings, a pantry with stock levels — an item's `have` is a fact about one shop, not
+an inventory — prices, budgets, nutrition, ingredient substitutions, importing a recipe
+from a URL or a photo, more than one shop or list in a week, meal photos, any "done" or
+"skipped" state on a cook, accounts, or sharing controls.

@@ -2,9 +2,11 @@ import { useDraggable } from '@dnd-kit/core'
 import { useState } from 'react'
 import { formatISODay } from '../lib/dates'
 import { mealDragId } from '../lib/dnd'
+import { MENU_ROW } from '../lib/menuStyles'
 import type { Meal, MealStats } from '../types'
 import DayStrip from './DayStrip'
 import Icon from './Icon'
+import IngredientsMenuRow from './IngredientsMenuRow'
 import MealSummary, { MEAL_CARD_CLASSES, PLANNED_OUTLINE } from './MealSummary'
 import MealTile from './MealTile'
 import Popover from './Popover'
@@ -18,6 +20,7 @@ type MealCardProps = {
   headlineTimesCooked: boolean
   onPlan: (date: string) => void
   onEdit: () => void
+  onIngredients: () => void
 }
 
 /** Times cooked, as a phrase. */
@@ -44,6 +47,7 @@ export default function MealCard({
   headlineTimesCooked,
   onPlan,
   onEdit,
+  onIngredients,
 }: MealCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
@@ -101,11 +105,18 @@ export default function MealCard({
             setMenuOpen(false)
             onEdit()
           }}
-          className="flex w-full items-center gap-3 px-0.5 pt-3 text-left text-[15px] md:text-sm"
+          className={`${MENU_ROW} border-b border-line`}
         >
           <Icon name="pencil" className="h-5 w-5 text-ink-3" />
           Edit meal
         </button>
+        <IngredientsMenuRow
+          mealId={meal.id}
+          onClick={() => {
+            setMenuOpen(false)
+            onIngredients()
+          }}
+        />
       </div>
     </Popover>
   )

@@ -19,10 +19,11 @@ import Planner from './components/Planner'
 import { PlannerToolbar } from './components/PlannerToolbar'
 import { insertCook, moveCook, reorderDay } from './data/mutations'
 import { useCooks } from './data/useCooks'
+import { useIngredients } from './data/useIngredients'
 import { useMeals } from './data/useMeals'
 import { collisionDetection, type DragData, type DropData } from './lib/dnd'
 import { cooksOnDate } from './lib/planner'
-import type { Cook, Meal } from './types'
+import type { Cook, Ingredient, Meal } from './types'
 
 function useDarkMode() {
   const [dark, setDark] = useState(() => {
@@ -45,6 +46,7 @@ type Tab = 'plan' | 'meals'
 type ShellProps = {
   meals: Meal[]
   cooks: Cook[]
+  ingredients: Ingredient[]
   mealsLoading: boolean
   tab: Tab
   onTabChange: (tab: Tab) => void
@@ -62,6 +64,7 @@ type ShellProps = {
 function Shell({
   meals,
   cooks,
+  ingredients,
   mealsLoading,
   tab,
   onTabChange,
@@ -180,6 +183,7 @@ function Shell({
             <MealList
               meals={meals}
               cooks={cooks}
+              ingredients={ingredients}
               loading={mealsLoading}
               headerAction={<ThemeToggle dark={dark} onToggle={onToggleDark} />}
             />
@@ -187,7 +191,7 @@ function Shell({
           <section
             className={`min-w-0 flex-1 overflow-hidden md:block ${tab === 'plan' ? 'block' : 'hidden'}`}
           >
-            <Planner meals={meals} cooks={cooks} />
+            <Planner meals={meals} cooks={cooks} ingredients={ingredients} />
           </section>
         </div>
         <DragOverlay>
@@ -220,12 +224,14 @@ function App() {
   const [dark, setDark] = useDarkMode()
   const { meals, loading: mealsLoading } = useMeals()
   const { cooks } = useCooks()
+  const { ingredients } = useIngredients()
   const [tab, setTab] = useState<Tab>('plan')
 
   const shell = (
     <Shell
       meals={meals}
       cooks={cooks}
+      ingredients={ingredients}
       mealsLoading={mealsLoading}
       tab={tab}
       onTabChange={setTab}
@@ -239,6 +245,7 @@ function App() {
       <Routes>
         <Route path="/" element={shell} />
         <Route path="/week/:date" element={shell} />
+        <Route path="/week/:date/shop" element={shell} />
         <Route path="/month/:ym" element={shell} />
         <Route path="*" element={shell} />
       </Routes>
