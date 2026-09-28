@@ -282,18 +282,24 @@ construction.
 
 ## 6. Layout and interaction
 
-A full-height two-pane shell. It fills the viewport exactly and **the document itself
-never scrolls** — each pane scrolls within its own space. A page that scrolls as well as
-its panes ends at a band of bare body below the app, because a phone's `100vh` is taller
-than its visible viewport.
+A full-height shell of panes — the meal library, the planner, and below `md` the shopping
+list. It fills the viewport exactly and **the document itself never scrolls** — each pane
+scrolls within its own space. A page that scrolls as well as its panes ends at a band of
+bare body below the app, because a phone's `100vh` is taller than its visible viewport.
 
 From `md` up, both panes sit side by side beneath one header: the app title on the left,
-the planner's toolbar (below) in the centre, and the dark-mode toggle on the right.
+the planner's toolbar (below) in the centre, and the shopping list's bag button and the
+dark-mode toggle on the right.
 
-Below `md`, **one pane is on screen at a time, chosen by a two-tab bottom bar** — Plan and
-Meals. Stacking both panes leaves each too short to work in; separating them gives
+Below `md`, **one pane is on screen at a time, chosen by a three-tab bottom bar** — Plan,
+Meals and Shop. Stacking panes leaves each too short to work in; separating them gives
 whichever is in use the whole screen. There is no app header at this width; each pane
 carries a title of its own instead.
+
+**Shopping is a pane of its own on a phone, not a sheet.** It is one of the three things
+the app is for, and the one done standing in a shop holding the phone, so it is one tap
+from anywhere rather than something found by aiming at a marker inside a week. As a pane
+it also leaves the tab bar on screen, so the plan is still one tap away mid-shop.
 
 Because the two panes are never on screen together on a phone, **every gesture that spans
 them has an equivalent that does not** — see the meal card's plan menu below.
@@ -430,15 +436,27 @@ every row or a swipe with no keyboard equivalent.
 
 ### The shopping list
 
-The list is a sheet of its own, opened by the shop-day marker at every width. The marker
-is already what says where shopping happens, so it is the only way in. It renders its
-aisle sections and its no-ingredients notice only once the window's recipes have loaded —
-otherwise every meal in the window would flash there while its recipe is still in flight.
-In order, the sheet holds:
+Below `md` the list is the Shop tab's pane. Above `md` it is a sheet over the week,
+opened by the shop-day marker or by the header's bag button — the marker says where
+shopping happens, and the button is there whatever week is showing.
+
+**The Shop tab opens the list whose shop is next**: this week's until Wednesday, then the
+coming week's. From midweek the list being built is the next shop's, not the one already
+done. The switch is on the calendar weekday, whatever day the shop itself has moved to.
+
+The list carries **previous and next week** of its own — the same controls the planner
+steps with, since the list's week is the route's week and the two always name the same one
+— and a `Current list` link back, offered only once the list has been stepped away from.
+Leaving the list returns to the week the planner was showing before it opened, so opening
+a list for another week never costs the planner its place.
+
+It renders its aisle sections and its no-ingredients notice only once the window's recipes
+have loaded — otherwise every meal in the window would flash there while its recipe is
+still in flight. In order, the list holds:
 
 1. The header: "Shopping list", with the window and its size beneath — `Sat 20 – Fri 26 ·
-   7 meals`, cooks in the window, not distinct meals — and `Shopping Saturday · Move to
-   Sunday` to move the shop day from here.
+   7 meals`, cooks in the window, not distinct meals — and the week steppers at its
+   right. Then `Shopping Saturday · Move to Sunday`, to move the shop day from here.
 2. The meals it covers, as a row of tiles. Tapping one opens that meal's ingredients.
 3. Any of those meals with no ingredients yet, named, each opening its ingredients. This
    is how a gap in the list gets filled.
@@ -462,7 +480,9 @@ the ingredient picker's pencil reaches; tapping still cycles its state.
 
 - `/` — the current week
 - `/week/:date` — the week containing `date`
-- `/week/:date/shop` — that week's shopping list, over the week
+- `/week/:date/shop` — that week's shopping list: a pane below `md`, a sheet over the week
+  above it. Stepping to another week keeps the list open, so the toolbar and the list's
+  own steppers do the same thing.
 - `/month/:ym` — that month
 
 Browser back and forward navigate between weeks and months, and back dismisses the
@@ -521,9 +541,10 @@ Requirements:
 - A cook card's menu and a day's meal picker flip above or right-align themselves when
   there is no room below. Both panes scroll, so a panel that always opened downwards
   would be clipped. Below `md` these panels are **bottom sheets** instead — reachable by
-  thumb, and never squeezed against an edge. The recipe sheet, the ingredient picker and
-  the shopping list are bottom sheets below `md` and centred dialogs above it, since each
-  is too tall to hang off the control that opened it. Every sheet has the same header: the tile of
+  thumb, and never squeezed against an edge. The recipe sheet and the ingredient picker are
+  bottom sheets below `md` and centred dialogs above it, since each is too tall to hang
+  off the control that opened it; the shopping list is a sheet from `md` up and a pane of
+  its own below it. Every sheet has the same header: the tile of
   the meal it acts on where there is one, a title, a subtitle (the day, or the meal's
   history), and a close button. A sheet is portalled to the body: a dragging card carries
   a transform, and a `fixed` descendant of a transformed element positions against that
@@ -614,14 +635,17 @@ src/
     IngredientEditor.tsx # an existing ingredient's own name and aisle
     IngredientsMenuRow.tsx # the `Ingredients · n` row shared by both menus
     AisleChips.tsx        # the aisle set as a chip row
-    ShoppingList.tsx     # the week's list: aisles, item states, extras
+    ShoppingList.tsx     # the week's list: aisles, item states, extras; a pane
+                         # below md, a sheet above it
     Popover.tsx          # anchored panel that flips to stay on screen, and is a
                          # bottom sheet below md: the day picker, the cook chip
                          # menu, the meal card menu
     Sheet.tsx             # bottom sheet below md, centred dialog above it: the
-                         # recipe sheet, the ingredient picker, the shopping list
+                         # recipe sheet, the ingredient picker, the shopping
+                         # list above md
     SheetHeader.tsx        # the standard header every sheet carries
-  App.tsx                # shell with header and tab bar, routes, dark mode, DndContext
+  App.tsx                # shell with header and three-tab bar, routes, the
+                         # shopping list's pane and sheet, dark mode, DndContext
   main.tsx
   index.css              # Tailwind import, dark variant, @theme interface palette
 firestore.rules
@@ -657,7 +681,8 @@ Phases 1–4 are the planner; 9–10 are the shopping list. Update these boxes a
       the recipe sheet from the meal card's and cook card's menus; the ingredient picker,
       creating what it cannot find. *Checkpoint: every meal can carry its ingredients.*
 - [x] **10. Shopping list** — the window from this week's and the next week's shop dates;
-      `lib/shopping.ts`; the list from the shop marker and `/week/:date/shop`; aisle
+      `lib/shopping.ts`; the list from the Shop tab, the shop marker and the header's bag
+      button, at `/week/:date/shop`; aisle
       sections, the `toGet`/`got`/`have` cycle persisted on the week, extras, and the
       notice naming meals with no ingredients. *Checkpoint: the week can be shopped from a
       phone.*

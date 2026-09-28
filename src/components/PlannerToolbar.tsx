@@ -6,8 +6,11 @@ import Icon from './Icon'
 const NAV_BUTTON =
   'flex h-8 w-8 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-surface-1 hover:text-ink'
 
-/** Previous and next, for whichever of week or month is showing. */
-function StepButtons() {
+/**
+ * Previous and next, for whichever of week or month is showing. Shared with
+ * the shopping list, which steps the same week the planner does.
+ */
+export function StepButtons() {
   const { isWeek, goPrevious, goNext } = usePlannerRoute()
   return (
     <>

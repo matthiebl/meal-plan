@@ -8,7 +8,13 @@ import type {
   Meal,
   Recipe,
 } from '../types'
-import { fromISODate, previousISODate } from './dates'
+import {
+  fromISODate,
+  nextWeek,
+  previousISODate,
+  toISODate,
+  weekStartSaturday,
+} from './dates'
 import { AISLES, aisleOf } from './ingredients'
 import { BASE_UNITS, formatTotal, toBase, type BaseUnit } from './units'
 
@@ -26,6 +32,20 @@ export function shopWindow(
   nextShopDate: string,
 ): ShopWindow {
   return { from: thisShopDate, to: nextShopDate }
+}
+
+/**
+ * The week whose shop is next: this week's until Wednesday, then the coming
+ * one. From midweek the list being built is the next shop's, not the one
+ * already done. Keyed to the calendar weekday rather than to a moved
+ * `shopDate`: it chooses which week to open, and `shopWindow` still decides
+ * what that week's list covers. See PLAN.md §6.
+ */
+export function currentShopWeekSaturday(today = new Date()): string {
+  const saturday = weekStartSaturday(today)
+  const day = today.getDay()
+  const midweek = day >= 3 && day <= 5
+  return toISODate(midweek ? nextWeek(saturday) : saturday)
 }
 
 /** The half-open boundary, in one place. */

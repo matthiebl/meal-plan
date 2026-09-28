@@ -7,6 +7,8 @@ type SheetProps = {
   title: string
   subtitle?: string
   onClose: () => void
+  /** Controls belonging to the sheet itself, in its header. */
+  actions?: ReactNode
   children: ReactNode
   /** aria-label for the dialog when it differs from the title. */
   label?: string
@@ -23,6 +25,7 @@ export default function Sheet({
   title,
   subtitle,
   onClose,
+  actions,
   children,
   label,
 }: SheetProps) {
@@ -52,6 +55,7 @@ export default function Sheet({
             lead={lead}
             title={title}
             subtitle={subtitle}
+            actions={actions}
             onClose={onClose}
           />
         </div>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
   addCook,
   addLeftovers,
@@ -25,7 +25,6 @@ import type { Cook, Ingredient, Meal } from '../types'
 import DayRow from './DayRow'
 import Icon from './Icon'
 import RecipeSheet from './RecipeSheet'
-import ShoppingList from './ShoppingList'
 
 const UNDO_WINDOW_MS = 6000
 
@@ -129,19 +128,6 @@ export default function WeekView({
     weekMeta.nextShopDate,
     navigate,
   ])
-
-  // The shopping list is a sheet over this same route, opened by the shop
-  // marker. A deep link straight to it has no history entry to go back to,
-  // so closing falls back to the week itself. See PLAN.md §6.
-  const location = useLocation()
-  const showShoppingList = location.pathname.endsWith('/shop')
-  function closeShoppingList() {
-    if (location.key === 'default') {
-      navigate(`/week/${startSaturdayISO}`, { replace: true })
-    } else {
-      navigate(-1)
-    }
-  }
 
   // Every destructive or off-screen action names what it did and offers an
   // undo for a few seconds. See PLAN.md §6.
@@ -296,18 +282,6 @@ export default function WeekView({
             />
           ) : null
         })()}
-
-      {showShoppingList && (
-        <ShoppingList
-          saturdayISO={startSaturdayISO}
-          meta={weekMeta}
-          cooks={cooks}
-          meals={meals}
-          ingredients={ingredients}
-          onClose={closeShoppingList}
-          onOpenRecipe={setRecipeSheetMealId}
-        />
-      )}
 
       {toast && (
         <div className="pointer-events-none absolute inset-x-0 bottom-5 z-40 flex justify-center px-4">

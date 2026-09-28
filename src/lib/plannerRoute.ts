@@ -27,6 +27,11 @@ export function usePlannerRoute() {
   const navigate = useNavigate()
 
   const isWeek = !pathname.startsWith('/month')
+  // The shopping list is a route over its week, so every move between weeks
+  // carries it along rather than dismissing it. See PLAN.md §6.
+  const isShop = pathname.endsWith('/shop')
+  const weekPath = (day: Date) =>
+    `/week/${toISODate(day)}${isShop ? '/shop' : ''}`
   const { anchor, saturday, days } = useMemo(() => {
     const anchor = date
       ? fromISODate(date)
@@ -39,6 +44,8 @@ export function usePlannerRoute() {
 
   return {
     isWeek,
+    /** Whether the shopping list is open over the week. */
+    isShop,
     /** The day the route names; for a month, its first day. */
     anchor,
     /** The Saturday starting the displayed week (or the week holding `anchor`). */
@@ -49,24 +56,25 @@ export function usePlannerRoute() {
     goPrevious: () =>
       navigate(
         isWeek
-          ? `/week/${toISODate(previousWeek(saturday))}`
+          ? weekPath(previousWeek(saturday))
           : `/month/${toMonthParam(previousMonth(anchor))}`,
       ),
     goNext: () =>
       navigate(
         isWeek
-          ? `/week/${toISODate(nextWeek(saturday))}`
+          ? weekPath(nextWeek(saturday))
           : `/month/${toMonthParam(nextMonth(anchor))}`,
       ),
     goToday: () => {
       const now = new Date()
       navigate(
         isWeek
-          ? `/week/${toISODate(weekStartSaturday(now))}`
+          ? weekPath(weekStartSaturday(now))
           : `/month/${toMonthParam(now)}`,
       )
     },
-    showWeek: () => navigate(`/week/${toISODate(saturday)}`),
+    showWeek: () => navigate(weekPath(saturday)),
+    /** A month has no shopping list of its own, so this leaves the list. */
     showMonth: () => navigate(`/month/${toMonthParam(anchor)}`),
   }
 }

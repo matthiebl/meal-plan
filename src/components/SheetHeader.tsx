@@ -7,6 +7,8 @@ type SheetHeaderProps = {
   title: string
   subtitle?: string
   onClose: () => void
+  /** Controls belonging to the sheet itself, before the close button. */
+  actions?: ReactNode
   /** The mobile grab handle above the heading — omitted for an anchored panel. */
   grabHandle?: boolean
 }
@@ -20,6 +22,7 @@ export default function SheetHeader({
   title,
   subtitle,
   onClose,
+  actions,
   grabHandle = false,
 }: SheetHeaderProps) {
   return (
@@ -35,6 +38,7 @@ export default function SheetHeader({
             <p className="mt-0.5 truncate text-[13px] text-ink-3">{subtitle}</p>
           )}
         </div>
+        {actions}
         <button
           type="button"
           onClick={onClose}
